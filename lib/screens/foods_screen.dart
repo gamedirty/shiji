@@ -32,6 +32,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
     final meals = store.meals.where((m) => q.isEmpty || m.name.toLowerCase().contains(q)).toList();
 
     return SafeArea(
+      bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

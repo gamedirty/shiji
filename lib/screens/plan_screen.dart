@@ -41,6 +41,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
     return SafeArea(
       top: true,
+      bottom: false,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
         children: [
@@ -245,60 +246,63 @@ class _EntryCard extends StatelessWidget {
     final done = entry.done;
 
     return IosCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(14, 14, 6, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => store.setDone(entry.id, !done),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Opacity(
-                  opacity: done ? 0.45 : 1,
-                  child: EmojiBadge(store.emojiOf(entry), size: 54),
-                ),
-                if (done)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: const BoxDecoration(
-                          color: AppColors.carbs, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => store.setDone(entry.id, !done),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Opacity(
+                      opacity: done ? 0.45 : 1,
+                      child: EmojiBadge(store.emojiOf(entry), size: 54),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        decoration: done ? TextDecoration.lineThrough : null,
-                        decorationColor: AppColors.subtext,
-                        color: done ? AppColors.subtext : AppColors.text)),
-                const SizedBox(height: 3),
-                Text(subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppColors.subtext)),
-                const SizedBox(height: 10),
-                MacroRow(n: n),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          PopupMenuButton<String>(
+                    if (done)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                              color: AppColors.carbs, shape: BoxShape.circle),
+                          child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                            decoration: done ? TextDecoration.lineThrough : null,
+                            decorationColor: AppColors.subtext,
+                            color: done ? AppColors.subtext : AppColors.text)),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 12, height: 1.4, color: AppColors.subtext)),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
             icon: const Icon(Icons.more_horiz_rounded, color: AppColors.subtext, size: 22),
             shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(16)),
             position: PopupMenuPosition.under,
@@ -345,6 +349,13 @@ class _EntryCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+      const SizedBox(height: 10),
+      Padding(
+        padding: const EdgeInsets.only(left: 66, right: 8),
+        child: MacroRow(n: n),
+      ),
+    ],
       ),
     );
   }

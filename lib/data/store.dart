@@ -224,10 +224,8 @@ class AppStore extends ChangeNotifier {
     final names = m.items
         .map((c) => _foodById[c.foodId]?.name)
         .whereType<String>()
-        .take(3)
         .join(' · ');
-    final more = m.items.length > 3 ? ' 等 ${m.items.length} 种' : '';
-    return '组合餐 · $names$more · ${fmtNum(e.servings)} 份';
+    return '组合餐 · $names · ${fmtNum(e.servings)} 份';
   }
 
   /// 组合餐一整份（每种食材 ×1 份）的营养与克数

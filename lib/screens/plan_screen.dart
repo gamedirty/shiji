@@ -107,13 +107,25 @@ class _PlanScreenState extends State<PlanScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: isToday ? AppColors.text : AppColors.subtext)),
-        if (!isToday) ...[
-          const Spacer(),
-          TextButton(
-            onPressed: () => widget.onDateChanged(now),
-            child: const Text('今天', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        const Spacer(),
+        // 固定行高 + 紧凑按钮，保证按钮出现/消失时不改变行高（避免列表抖动）
+        SizedBox(
+          height: 34,
+          child: TextButton(
+            onPressed: isToday ? null : () => widget.onDateChanged(now),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 34),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text('今天',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isToday ? Colors.transparent : AppColors.accent)),
           ),
-        ],
+        ),
       ],
     );
   }

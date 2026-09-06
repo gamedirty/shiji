@@ -198,10 +198,13 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
           color: selected ? null : Colors.white,
           shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
           gradient: selected
-              ? const LinearGradient(
+              ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF37A5FF), Color(0xFF0A7AFF)],
+                  colors: [
+                    Color.lerp(t.accent, Colors.white, 0.18)!,
+                    t.accent,
+                  ],
                 )
               : null,
           shadows: const [BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2))],

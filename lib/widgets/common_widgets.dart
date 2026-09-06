@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -111,8 +112,15 @@ class MacroStat extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final bool light; // 深色/渐变底上的浅色变体
 
-  const MacroStat({super.key, required this.value, required this.label, required this.color});
+  const MacroStat({
+    super.key,
+    required this.value,
+    required this.label,
+    required this.color,
+    this.light = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +130,9 @@ class MacroStat extends StatelessWidget {
         Container(
           width: 4,
           height: 32,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+          decoration: BoxDecoration(
+              color: light ? const Color(0x8AFFFFFF) : color,
+              borderRadius: BorderRadius.circular(2)),
         ),
         const SizedBox(width: 6),
         Flexible(
@@ -134,12 +144,19 @@ class MacroStat extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.15)),
+                  style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: light ? Colors.white : AppColors.text)),
               Text(label,
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: AppColors.subtext, height: 1.2)),
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      height: 1.2,
+                      color: light ? const Color(0xB8FFFFFF) : AppColors.subtext)),
             ],
           ),
         ),
@@ -151,20 +168,171 @@ class MacroStat extends StatelessWidget {
 /// 一行四个营养指标：热量 / 蛋白质 / 碳水 / 脂肪
 class MacroRow extends StatelessWidget {
   final Nutrition n;
+  final bool light;
 
-  const MacroRow({super.key, required this.n});
+  const MacroRow({super.key, required this.n, this.light = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: MacroStat(value: '${n.calories.round()}', label: '千卡', color: AppColors.kcal)),
-        Expanded(child: MacroStat(value: '${fmtNum(n.protein)}g', label: '蛋白', color: AppColors.protein)),
-        Expanded(child: MacroStat(value: '${fmtNum(n.carbs)}g', label: '碳水', color: AppColors.carbs)),
-        Expanded(child: MacroStat(value: '${fmtNum(n.fat)}g', label: '脂肪', color: AppColors.fat)),
+        Expanded(
+            child: MacroStat(
+                value: '${n.calories.round()}',
+                label: '千卡',
+                color: AppColors.kcal,
+                light: light)),
+        Expanded(
+            child: MacroStat(
+                value: '${fmtNum(n.protein)}g',
+                label: '蛋白',
+                color: AppColors.protein,
+                light: light)),
+        Expanded(
+            child: MacroStat(
+                value: '${fmtNum(n.carbs)}g',
+                label: '碳水',
+                color: AppColors.carbs,
+                light: light)),
+        Expanded(
+            child: MacroStat(
+                value: '${fmtNum(n.fat)}g',
+                label: '脂肪',
+                color: AppColors.fat,
+                light: light)),
       ],
     );
   }
+}
+
+/// 每日热量进度环
+class CalorieRing extends StatelessWidget {
+  final double progress; // 0..1
+  final double size;
+  final String valueText;
+  final String unitText;
+
+  const CalorieRing({
+    super.key,
+    required this.progress,
+    required this.valueText,
+    required this.unitText,
+    this.size = 78,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(size, size),
+            painter: _RingPainter(progress.clamp(0.0, 1.0)),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(valueText,
+                  style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.1)),
+              Text(unitText,
+                  style: const TextStyle(
+                      fontSize: 9, color: Color(0xB8FFFFFF))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  final double progress;
+
+  _RingPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 7.0;
+    final rect = Offset(stroke / 2, stroke / 2) &
+        Size(size.width - stroke, size.height - stroke);
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = const Color(0x42FFFFFF);
+    canvas.drawArc(rect, 0, 2 * math.pi, false, track);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white;
+    canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * progress, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+/// 应用背景：暖→冷纵向渐变 + 三团低饱和氛围光斑
+class AppBackground extends StatelessWidget {
+  final Widget child;
+
+  const AppBackground({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFFFF3E4),
+            Color(0xFFF3F5FB),
+            Color(0xFFEBF3EE),
+          ],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -90,
+            right: -70,
+            child: _blob(const Color(0x59FFC46B), const Color(0x00FFC46B), 340),
+          ),
+          Positioned(
+            top: 220,
+            left: -90,
+            child: _blob(const Color(0x4D7DD8A3), const Color(0x007DD8A3), 300),
+          ),
+          Positioned(
+            bottom: 140,
+            right: -60,
+            child: _blob(const Color(0x408B8AF0), const Color(0x008B8AF0), 320),
+          ),
+          Positioned.fill(child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _blob(Color inner, Color outer, double size) => IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(colors: [inner, outer]),
+          ),
+        ),
+      );
 }
 
 /// 周历条（周一起始），选中日蓝色圆形，今日白底描边

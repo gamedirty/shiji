@@ -2,6 +2,8 @@
 /// 食材 Food（基础单位）→ 组合餐 MealTemplate（由多个食材组成）→ 饮食记录 DiaryEntry（某天某一餐的一条记录/计划）
 library;
 
+import 'dart:ui';
+
 import 'dart:math';
 
 /// 一天中的餐段
@@ -28,6 +30,16 @@ extension MealTypeX on MealType {
         MealType.dinner => '16:00–21:00',
         MealType.snack => '21:00–06:00',
       };
+
+  /// 每个餐段的主题色
+  Color get accent => switch (this) {
+        MealType.breakfast => const Color(0xFFFF9500), // 晨光橙
+        MealType.lunch => const Color(0xFF30B15C), // 活力绿
+        MealType.dinner => const Color(0xFF5E5CE6), // 静夜紫
+        MealType.snack => const Color(0xFFFF2D78), // 元气粉
+      };
+
+  Color get accentSoft => accent.withValues(alpha: 0.12);
 
   static MealType fromName(String? name) => MealType.values
       .firstWhere((t) => t.name == name, orElse: () => MealType.breakfast);

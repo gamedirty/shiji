@@ -11,6 +11,9 @@ class AppStore extends ChangeNotifier {
   static const _kFoods = 'shiji.foods';
   static const _kMeals = 'shiji.meals';
   static const _kDiary = 'shiji.diary';
+  static const _kTarget = 'shiji.kcalTarget';
+
+  double kcalTarget = 2000;
 
   final List<Food> _foods = [];
   final List<MealTemplate> _meals = [];
@@ -44,7 +47,14 @@ class AppStore extends ChangeNotifier {
           _decode(_prefs.getString(_kDiary)).map(DiaryEntry.fromJson));
     }
     _rebuildIndex();
+    kcalTarget = _prefs.getDouble(_kTarget) ?? 2000;
     loaded = true;
+    notifyListeners();
+  }
+
+  void setKcalTarget(double v) {
+    kcalTarget = v.clamp(500, 10000);
+    _prefs.setDouble(_kTarget, kcalTarget);
     notifyListeners();
   }
 

@@ -56,7 +56,7 @@ class _PlanScreenState extends State<PlanScreen> {
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2),
           ),
           const SizedBox(height: 12),
-          _summaryCard(totals),
+          _summaryCard(store, totals),
           const SizedBox(height: 16),
           _chips(),
           const SizedBox(height: 12),
@@ -130,29 +130,104 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 
-  Widget _summaryCard(Nutrition totals) {
-    return IosCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('全天合计', style: TextStyle(fontSize: 12, color: AppColors.subtext)),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text('${totals.calories.round()}',
-                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.1)),
-              const SizedBox(width: 4),
-              const Text('千卡', style: TextStyle(fontSize: 13, color: AppColors.subtext)),
-            ],
+  Widget _summaryCard(AppStore store, Nutrition totals) {
+    final target = store.kcalTarget;
+    final progress = target > 0 ? totals.calories / target : 0.0;
+    final remaining = target - totals.calories;
+    final sub = remaining >= 0
+        ? '今日还可吃 ${remaining.round()} 千卡'
+        : '已超出 ${(-remaining).round()} 千卡';
+
+    return GestureDetector(
+      onTap: () => _editTarget(store),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: ShapeDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0A84FF), Color(0xFF5E5CE6)],
           ),
-          const SizedBox(height: 14),
-          MacroRow(n: totals),
+          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(26)),
+          shadows: const [
+            BoxShadow(color: Color(0x3D5E5CE6), blurRadius: 20, offset: Offset(0, 8)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CalorieRing(
+                  progress: progress,
+                  valueText: totals.calories.round().toString(),
+                  unitText: '千卡',
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('全天合计',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xCCFFFFFF))),
+                      const SizedBox(height: 2),
+                      Text('每日目标 ${fmtNum(store.kcalTarget)} 千卡',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0x99FFFFFF))),
+                      const SizedBox(height: 6),
+                      Text(sub,
+                          style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text('点按可调整目标',
+                          style: const TextStyle(
+                              fontSize: 10, color: Color(0x80FFFFFF))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            MacroRow(n: totals, light: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editTarget(AppStore store) async {
+    final c = TextEditingController(text: store.kcalTarget.round().toString());
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('每日热量目标'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [NumericTextFormatter()],
+          decoration: const InputDecoration(
+              suffixText: '千卡', suffixStyle: TextStyle(color: AppColors.subtext)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: AppColors.subtext))),
+          TextButton(
+              onPressed: () =>
+                  Navigator.pop(ctx, double.tryParse(c.text.trim())),
+              child: const Text('保存',
+                  style: TextStyle(
+                      color: AppColors.accent, fontWeight: FontWeight.w700))),
         ],
       ),
     );
+    if (v != null && v >= 100) store.setKcalTarget(v);
   }
 
   Widget _chips() {
@@ -177,23 +252,30 @@ class _PlanScreenState extends State<PlanScreen> {
     final selected = _filter == t;
     final label = t?.label ?? '全部';
     final range = t?.timeRange ?? '';
+    final accent = t?.accent ?? AppColors.accent;
     return GestureDetector(
       onTap: () => setState(() => _filter = t),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: ShapeDecoration(
           shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
           color: selected ? null : Colors.white,
           gradient: selected
-              ? const LinearGradient(
+              ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF37A5FF), Color(0xFF0A7AFF)],
+                  colors: [
+                    Color.lerp(accent, Colors.white, 0.18)!,
+                    accent,
+                  ],
                 )
               : null,
           shadows: selected
-              ? const [
-                  BoxShadow(color: Color(0x590A7AFF), blurRadius: 12, offset: Offset(0, 5)),
+              ? [
+                  BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5)),
                 ]
               : const [
                   BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2)),
@@ -203,11 +285,26 @@ class _PlanScreenState extends State<PlanScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? Colors.white : AppColors.text)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (t != null) ...[
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: selected ? Colors.white : accent),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? Colors.white : AppColors.text)),
+              ],
+            ),
             if (range.isNotEmpty)
               Text(range,
                   style: TextStyle(
@@ -272,7 +369,8 @@ class _EntryCard extends StatelessWidget {
                   children: [
                     Opacity(
                       opacity: done ? 0.45 : 1,
-                      child: EmojiBadge(store.emojiOf(entry), size: 54),
+                      child: EmojiBadge(store.emojiOf(entry),
+                          size: 54, color: entry.type.accentSoft),
                     ),
                     if (done)
                       Positioned(

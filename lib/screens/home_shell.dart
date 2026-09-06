@@ -33,16 +33,18 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          PlanScreen(
-            selectedDate: _selectedDate,
-            onDateChanged: (d) => setState(() => _selectedDate = d),
-            onAdd: ({type}) => _openAdd(type: type),
-          ),
-          const FoodsScreen(),
-        ],
+      body: AppBackground(
+        child: IndexedStack(
+          index: _tab,
+          children: [
+            PlanScreen(
+              selectedDate: _selectedDate,
+              onDateChanged: (d) => setState(() => _selectedDate = d),
+              onAdd: ({type}) => _openAdd(type: type),
+            ),
+            const FoodsScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: GlassNavBar(
         index: _tab,

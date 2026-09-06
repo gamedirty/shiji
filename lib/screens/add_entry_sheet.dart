@@ -1,0 +1,447 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/store.dart';
+import '../models.dart';
+import '../theme.dart';
+import '../widgets/common_widgets.dart';
+
+/// 中间 + 号：记录饮食 —— 选日期、餐段，从食材库或组合餐里挑，调份数后加入
+class AddEntrySheet extends StatefulWidget {
+  final DateTime initialDate;
+  final MealType? initialType;
+
+  const AddEntrySheet({super.key, required this.initialDate, this.initialType});
+
+  @override
+  State<AddEntrySheet> createState() => _AddEntrySheetState();
+}
+
+class _AddEntrySheetState extends State<AddEntrySheet> {
+  late DateTime _date = widget.initialDate;
+  late MealType _type =
+      widget.initialType ?? MealTypeX.guessByTime(DateTime.now());
+  int _seg = 0; // 0=食材 1=组合餐
+  String _query = '';
+
+  EntrySource? _selSource;
+  String _selId = '';
+  double _selServings = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    final q = _query.trim().toLowerCase();
+    final foods = store.foods.where((f) => q.isEmpty || f.name.toLowerCase().contains(q)).toList();
+    final meals = store.meals.where((m) => q.isEmpty || m.name.toLowerCase().contains(q)).toList();
+    final insets = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: insets),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.92 - insets,
+        decoration: const BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: const Color(0xFFD8DAE0), borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
+              child: Row(
+                children: [
+                  const Text('记录饮食', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, size: 24, color: AppColors.subtext),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _dateBar(),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: MealType.values
+                    .map((t) => Expanded(child: _typeChip(t)))
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                height: 36,
+                child: CupertinoSlidingSegmentedControl<int>(
+                  groupValue: _seg,
+                  thumbColor: Colors.white,
+                  backgroundColor: const Color(0xFFE4E6EC),
+                  onValueChanged: (v) => setState(() {
+                    _seg = v ?? 0;
+                    _clearSelection();
+                  }),
+                  children: const {
+                    0: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('食材', style: TextStyle(fontSize: 13.5))),
+                    1: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('组合餐', style: TextStyle(fontSize: 13.5))),
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.subtext),
+                  hintText: '搜索${_seg == 0 ? '食材' : '组合餐'}',
+                  hintStyle: const TextStyle(fontSize: 14, color: AppColors.subtext),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: Colors.transparent)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.accent, width: 1.4)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _seg == 0
+                  ? _buildFoodList(foods)
+                  : _buildMealList(meals),
+            ),
+            if (_selSource != null) _selectionBar(store),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dateBar() {
+    final isToday = isSameDay(_date, DateTime.now());
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          _circleButton(Icons.chevron_left_rounded, () => setState(() => _date = _date.subtract(const Duration(days: 1)))),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _date = DateTime.now()),
+              child: Text.rich(
+                TextSpan(
+                  text: '${_date.month}月${_date.day}日 ',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  children: [
+                    TextSpan(
+                        text: isToday ? '今天 · ${weekdayLabel(_date)}' : weekdayLabel(_date),
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.subtext)),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          _circleButton(Icons.chevron_right_rounded, () => setState(() => _date = _date.add(const Duration(days: 1)))),
+        ],
+      ),
+    );
+  }
+
+  Widget _circleButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        child: Icon(icon, size: 22, color: AppColors.text),
+      ),
+    );
+  }
+
+  Widget _typeChip(MealType t) {
+    final selected = _type == t;
+    return GestureDetector(
+      onTap: () => setState(() => _type = t),
+      child: Container(
+        margin: EdgeInsets.only(right: t == MealType.snack ? 0 : 8),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: ShapeDecoration(
+          color: selected ? null : Colors.white,
+          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+          gradient: selected
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF37A5FF), Color(0xFF0A7AFF)],
+                )
+              : null,
+          shadows: const [BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2))],
+        ),
+        child: Column(
+          children: [
+            Text(t.label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : AppColors.text)),
+            Text(t.timeRange,
+                style: TextStyle(
+                    fontSize: 9,
+                    height: 1.4,
+                    color: selected ? const Color(0xCCFFFFFF) : AppColors.subtext)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFoodList(List<Food> foods) {
+    if (foods.isEmpty) {
+      return const Center(
+          child: Text('没有找到食材，先去「食材库」添加',
+              style: TextStyle(fontSize: 13, color: AppColors.subtext)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      itemCount: foods.length,
+      itemBuilder: (context, i) {
+        final f = foods[i];
+        final selected = _selSource == EntrySource.food && _selId == f.id;
+        return _row(
+          selected: selected,
+          onTap: () => setState(() {
+            if (selected) {
+              _clearSelection();
+            } else {
+              _selSource = EntrySource.food;
+              _selId = f.id;
+              _selServings = 1;
+            }
+          }),
+          emoji: f.emoji,
+          title: f.name,
+          subtitle: '每份 ${fmtNum(f.servingGrams)}g · ${f.kcalPer100.round()} 千卡/100g',
+        );
+      },
+    );
+  }
+
+  Widget _buildMealList(List<MealTemplate> meals) {
+    if (meals.isEmpty) {
+      return const Center(
+          child: Text('还没有组合餐，先去「食材库 → 组合餐」创建',
+              style: TextStyle(fontSize: 13, color: AppColors.subtext)));
+    }
+    final store = context.read<AppStore>();
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      itemCount: meals.length,
+      itemBuilder: (context, i) {
+        final m = meals[i];
+        final selected = _selSource == EntrySource.meal && _selId == m.id;
+        final n = store.mealNutrition(m);
+        return _row(
+          selected: selected,
+          onTap: () => setState(() {
+            if (selected) {
+              _clearSelection();
+            } else {
+              _selSource = EntrySource.meal;
+              _selId = m.id;
+              _selServings = 1;
+            }
+          }),
+          emoji: m.emoji,
+          title: m.name,
+          subtitle:
+              '${m.items.length} 种食材 · 整餐 ${n.calories.round()} 千卡 / ${fmtNum(store.mealGrams(m))}g',
+        );
+      },
+    );
+  }
+
+  Widget _row({
+    required bool selected,
+    required VoidCallback onTap,
+    required String emoji,
+    required String title,
+    required String subtitle,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: selected ? AppColors.accent : Colors.transparent, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            EmojiBadge(emoji, size: 42),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text(subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.subtext)),
+                ],
+              ),
+            ),
+            selected
+                ? Container(
+                    width: 26,
+                    height: 26,
+                    decoration: const BoxDecoration(
+                        color: AppColors.accent, shape: BoxShape.circle),
+                    child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                  )
+                : const Icon(Icons.add_circle_outline_rounded,
+                    size: 24, color: Color(0xFFC6C9CF)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectionBar(AppStore store) {
+    final title = store.titleOfRef(_selSource!, _selId);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xF0FFFFFF), Color(0xDCFFFFFF)],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: const Border(top: BorderSide(color: Color(0x99FFFFFF), width: 1)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text('${_type.label} · ${fmtNum(_selServings)} 份',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.subtext)),
+                ],
+              ),
+            ),
+            _stepper(),
+            const SizedBox(width: 10),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(84, 42)),
+              onPressed: _add,
+              child: const Text('添加'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stepper() {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _selServings > 0.5 ? () => setState(() => _selServings -= 0.5) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Icon(Icons.remove_rounded,
+                  size: 18,
+                  color: _selServings > 0.5 ? AppColors.text : const Color(0xFFC6C9CF)),
+            ),
+          ),
+          Text(fmtNum(_selServings),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          GestureDetector(
+            onTap: () => setState(() => _selServings += 0.5),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Icon(Icons.add_rounded, size: 18, color: AppColors.text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearSelection() {
+    _selSource = null;
+    _selId = '';
+    _selServings = 1;
+  }
+
+  void _add() {
+    final store = context.read<AppStore>();
+    final source = _selSource!;
+    store.addEntry(DiaryEntry(
+      id: genId(),
+      dateKey: dateKeyOf(_date),
+      type: _type,
+      source: source,
+      refId: _selId,
+      servings: _selServings,
+    ));
+    final name = store.titleOfRef(source, _selId);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('已添加「$name」到 ${_date.month}月${_date.day}日 · ${_type.label}'),
+        duration: const Duration(milliseconds: 1200),
+      ));
+    setState(_clearSelection);
+  }
+}

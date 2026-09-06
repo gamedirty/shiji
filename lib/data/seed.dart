@@ -1,0 +1,100 @@
+import '../models.dart';
+
+/// 首次启动的示例数据：常见健身食材 + 三个组合餐 + 今天的示例记录
+/// 营养数值为常见食物成分表的近似值（每 100g）
+
+List<Food> seedFoods() => [
+      Food(id: 'f-chicken', name: '鸡胸肉', emoji: '🍗', protein: 24, carbs: 0.6, fat: 3.4),
+      Food(id: 'f-egg', name: '鸡蛋', emoji: '🥚', protein: 13.3, carbs: 1.5, fat: 10, servingGrams: 50),
+      Food(id: 'f-oats', name: '燕麦片', emoji: '🌾', protein: 13.5, carbs: 58, fat: 6.5),
+      Food(id: 'f-rice', name: '米饭（熟）', emoji: '🍚', protein: 2.6, carbs: 28.2, fat: 0.3, servingGrams: 200),
+      Food(id: 'f-bread', name: '全麦面包', emoji: '🍞', protein: 9, carbs: 41, fat: 3.6),
+      Food(id: 'f-avocado', name: '牛油果', emoji: '🥑', protein: 2, carbs: 8.5, fat: 15),
+      Food(id: 'f-broccoli', name: '西兰花', emoji: '🥦', protein: 2.8, carbs: 4, fat: 0.4),
+      Food(id: 'f-sweetpotato', name: '红薯', emoji: '🍠', protein: 1.6, carbs: 20.1, fat: 0.2),
+      Food(id: 'f-salmon', name: '三文鱼', emoji: '🐟', protein: 20.4, carbs: 0, fat: 13.4),
+      Food(id: 'f-beef', name: '瘦牛肉', emoji: '🥩', protein: 21.5, carbs: 0.8, fat: 10.5),
+      Food(id: 'f-shrimp', name: '虾仁', emoji: '🦐', protein: 20.3, carbs: 0.5, fat: 0.9),
+      Food(id: 'f-tofu', name: '豆腐', emoji: '🧊', protein: 8.1, carbs: 2.2, fat: 4.8),
+      Food(id: 'f-yogurt', name: '希腊酸奶', emoji: '🍶', protein: 9.7, carbs: 3.9, fat: 5),
+      Food(id: 'f-milk', name: '牛奶', emoji: '🥛', protein: 3.3, carbs: 4.9, fat: 3.6, servingGrams: 250),
+      Food(id: 'f-whey', name: '乳清蛋白粉', emoji: '💪', protein: 76, carbs: 7.5, fat: 5.5, servingGrams: 30),
+      Food(id: 'f-banana', name: '香蕉', emoji: '🍌', protein: 1.1, carbs: 22.8, fat: 0.3),
+      Food(id: 'f-blueberry', name: '蓝莓', emoji: '🫐', protein: 0.7, carbs: 14.5, fat: 0.3),
+      Food(id: 'f-nuts', name: '混合坚果', emoji: '🥜', protein: 17, carbs: 14, fat: 54, servingGrams: 30),
+      Food(id: 'f-oil', name: '橄榄油', emoji: '🫒', protein: 0, carbs: 0, fat: 100, servingGrams: 10),
+      Food(id: 'f-bar', name: '蛋白棒（一根）', emoji: '🍫', protein: 33.3, carbs: 36.7, fat: 11.7, servingGrams: 60),
+    ];
+
+List<MealTemplate> seedMeals() => [
+      MealTemplate(
+        id: 'm-bowl',
+        name: '鸡胸肉能量碗',
+        emoji: '🥗',
+        prepMinutes: 25,
+        items: [
+          MealComponent(foodId: 'f-chicken', servings: 1.5),
+          MealComponent(foodId: 'f-rice', servings: 1),
+          MealComponent(foodId: 'f-broccoli', servings: 1),
+          MealComponent(foodId: 'f-oil', servings: 1),
+        ],
+      ),
+      MealTemplate(
+        id: 'm-yogurt',
+        name: '希腊酸奶莓果碗',
+        emoji: '🥣',
+        prepMinutes: 5,
+        items: [
+          MealComponent(foodId: 'f-yogurt', servings: 2),
+          MealComponent(foodId: 'f-blueberry', servings: 1),
+          MealComponent(foodId: 'f-nuts', servings: 1),
+          MealComponent(foodId: 'f-banana', servings: 1),
+        ],
+      ),
+      MealTemplate(
+        id: 'm-toast',
+        name: '牛油果鸡蛋吐司',
+        emoji: '🥑',
+        prepMinutes: 15,
+        items: [
+          MealComponent(foodId: 'f-bread', servings: 1),
+          MealComponent(foodId: 'f-avocado', servings: 0.5),
+          MealComponent(foodId: 'f-egg', servings: 2),
+        ],
+      ),
+    ];
+
+List<DiaryEntry> seedDiary() {
+  final today = dateKeyOf(DateTime.now());
+  return [
+    DiaryEntry(
+        id: 'd-seed-1',
+        dateKey: today,
+        type: MealType.breakfast,
+        source: EntrySource.meal,
+        refId: 'm-yogurt',
+        servings: 1,
+        done: true),
+    DiaryEntry(
+        id: 'd-seed-2',
+        dateKey: today,
+        type: MealType.lunch,
+        source: EntrySource.meal,
+        refId: 'm-bowl',
+        servings: 1),
+    DiaryEntry(
+        id: 'd-seed-3',
+        dateKey: today,
+        type: MealType.dinner,
+        source: EntrySource.meal,
+        refId: 'm-toast',
+        servings: 1),
+    DiaryEntry(
+        id: 'd-seed-4',
+        dateKey: today,
+        type: MealType.snack,
+        source: EntrySource.food,
+        refId: 'f-bar',
+        servings: 1),
+  ];
+}

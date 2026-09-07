@@ -106,7 +106,8 @@ class GlassSurface extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: squircle(radius),
         boxShadow: const [
-          BoxShadow(color: Color(0x0F000000), blurRadius: 16, offset: Offset(0, 6)),
+          BoxShadow(color: Color(0x33000000), blurRadius: 28, offset: Offset(0, 12)),
+          BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
       child: ClipRSuperellipse(
@@ -120,9 +121,12 @@ class GlassSurface extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x8CFFFFFF), Color(0x40FFFFFF)],
+                colors: [Color(0x99FFFFFF), Color(0x4DFFFFFF)],
               ),
-              border: Border.all(color: const Color(0x73FFFFFF), width: 1),
+              border: Border.all(
+                color: const Color(0x33000000),
+                width: 0.8,
+              ),
             ),
             child: child,
           ),

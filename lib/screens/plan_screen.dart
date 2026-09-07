@@ -138,7 +138,7 @@ class _PlanScreenState extends State<PlanScreen> {
         ? '今日还可吃 ${remaining.round()} 千卡'
         : '已超出 ${(-remaining).round()} 千卡';
 
-    return GestureDetector(
+    return PressableScale(
       onTap: () => _editTarget(store),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -253,7 +253,7 @@ class _PlanScreenState extends State<PlanScreen> {
     final label = t?.label ?? '全部';
     final range = t?.timeRange ?? '';
     final accent = t?.accent ?? AppColors.accent;
-    return GestureDetector(
+    return PressableScale(
       onTap: () => setState(() => _filter = t),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -362,7 +362,7 @@ class _EntryCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
+              PressableScale(
                 onTap: () => store.setDone(entry.id, !done),
                 child: Stack(
                   clipBehavior: Clip.none,

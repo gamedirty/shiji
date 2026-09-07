@@ -40,8 +40,9 @@ ThemeData buildTheme() {
     scaffoldBackgroundColor: AppColors.bg,
   );
   return base.copyWith(
-    splashFactory: NoSplash.splashFactory,
-    highlightColor: Colors.transparent,
+    splashFactory: InkRipple.splashFactory,
+    splashColor: AppColors.accent.withValues(alpha: 0.12),
+    highlightColor: AppColors.accent.withValues(alpha: 0.06),
     textTheme: base.textTheme.apply(
       bodyColor: AppColors.text,
       displayColor: AppColors.text,

@@ -150,7 +150,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         children: [
           _circleButton(Icons.chevron_left_rounded, () => setState(() => _date = _date.subtract(const Duration(days: 1)))),
           Expanded(
-            child: GestureDetector(
+            child: PressableScale(
               onTap: () => setState(() => _date = DateTime.now()),
               child: Text.rich(
                 TextSpan(
@@ -176,7 +176,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   }
 
   Widget _circleButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
         width: 34,
@@ -189,7 +189,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
 
   Widget _typeChip(MealType t) {
     final selected = _type == t;
-    return GestureDetector(
+    return PressableScale(
       onTap: () => setState(() => _type = t),
       child: Container(
         margin: EdgeInsets.only(right: t == MealType.snack ? 0 : 8),
@@ -299,7 +299,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     required String title,
     required String subtitle,
   }) {
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -398,7 +398,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
+          PressableScale(
             onTap: _selServings > 0.5 ? () => setState(() => _selServings -= 0.5) : null,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -409,7 +409,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
           ),
           Text(fmtNum(_selServings),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          GestureDetector(
+          PressableScale(
             onTap: () => setState(() => _selServings += 0.5),
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),

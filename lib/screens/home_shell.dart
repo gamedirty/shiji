@@ -82,7 +82,7 @@ class GlassNavBar extends StatelessWidget {
                     _tabItem(0, Icons.restaurant_rounded, '饮食计划'),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: GestureDetector(
+                      child: PressableScale(
                         onTap: onAdd,
                         child: Container(
                           width: 60,
@@ -122,7 +122,7 @@ class GlassNavBar extends StatelessWidget {
     return SizedBox(
       width: 84,
       height: double.infinity,
-      child: GestureDetector(
+      child: PressableScale(
         behavior: HitTestBehavior.opaque,
         onTap: () => onTab(i),
         child: Column(

@@ -139,7 +139,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
                       ),
                     ),
                   const SizedBox(height: 10),
-                  GestureDetector(
+                  PressableScale(
                     onTap: () => _pickFood(store),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -208,7 +208,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
 
   Widget _emojiChip(String e) {
     final selected = _emoji == e;
-    return GestureDetector(
+    return PressableScale(
       onTap: () => setState(() => _emoji = e),
       child: Container(
         width: 46,
@@ -371,7 +371,7 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
                 itemCount: foods.length,
                 itemBuilder: (context, i) {
                   final f = foods[i];
-                  return GestureDetector(
+                  return PressableScale(
                     onTap: () => Navigator.of(context).pop(f),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),

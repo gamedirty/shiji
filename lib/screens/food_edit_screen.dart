@@ -116,7 +116,7 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                     children: [50.0, 100.0, 250.0, 360.0].map((g) {
                       final label = g == 100 ? '100 · 标准' : fmtNum(g);
                       final selected = _parse(_grams) == g;
-                      return GestureDetector(
+                      return PressableScale(
                         onTap: () => setState(() => _grams.text = fmtNum(g)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -212,7 +212,7 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
 
   Widget _emojiChip(String e) {
     final selected = _emoji == e;
-    return GestureDetector(
+    return PressableScale(
       onTap: () => setState(() => _emoji = e),
       child: Container(
         width: 46,

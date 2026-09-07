@@ -163,7 +163,7 @@ class _FoodTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressableScale(
       onTap: () => Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => FoodEditScreen(food: food))),
       child: Container(
@@ -249,7 +249,7 @@ class _MealTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.read<AppStore>();
     final n = store.mealNutrition(meal);
-    return GestureDetector(
+    return PressableScale(
       onTap: () => Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => MealEditScreen(meal: meal))),
       child: Container(

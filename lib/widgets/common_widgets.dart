@@ -10,6 +10,51 @@ import '../theme.dart';
 /// iOS 连续曲率圆角（squircle）半径
 BorderRadius squircle(double r) => BorderRadius.circular(r);
 
+/// 可点元素通用按压反馈：按下轻微缩小 + 变暗回弹
+class PressableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scale;
+  final HitTestBehavior behavior;
+
+  const PressableScale({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.scale = 0.965,
+    this.behavior = HitTestBehavior.deferToChild,
+  });
+
+  @override
+  State<PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<PressableScale> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return GestureDetector(
+      behavior: widget.behavior,
+      onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+      onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+      onTapCancel: enabled ? () => setState(() => _down = false) : null,
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? widget.scale : 1.0,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: _down ? 0.86 : 1.0,
+          duration: const Duration(milliseconds: 110),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
 /// iOS 风格白卡：连续圆角 + 极浅投影
 class IosCard extends StatelessWidget {
   final Widget child;

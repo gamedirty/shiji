@@ -25,6 +25,32 @@ class PlanScreen extends StatefulWidget {
 
 class _PlanScreenState extends State<PlanScreen> {
   MealType? _filter;
+  final ScrollController _scrollController = ScrollController();
+  bool _showStickyDate = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 切换日期并滚回顶部
+  void _onDateChanged(DateTime d) {
+    widget.onDateChanged(d);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0,
+          duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+    }
+  }
+
+  bool _onScrollNotification(ScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical) return false;
+    final show = n.metrics.pixels > 160;
+    if (show != _showStickyDate) {
+      setState(() => _showStickyDate = show);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,31 +68,62 @@ class _PlanScreenState extends State<PlanScreen> {
     return SafeArea(
       top: true,
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
+      child: Stack(
         children: [
-          _header(context, now),
-          const SizedBox(height: 20),
-          _dateRow(date, now),
-          const SizedBox(height: 12),
-          WeekStrip(selected: date, onTap: widget.onDateChanged),
-          const SizedBox(height: 24),
-          Text(
-            isSameDay(date, now) ? '今天的安排' : '${date.month}月${date.day}日 的安排',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2),
+          NotificationListener<ScrollNotification>(
+            onNotification: _onScrollNotification,
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
+              children: [
+                _header(context, now),
+                const SizedBox(height: 20),
+                _dateRow(date, now),
+                const SizedBox(height: 12),
+                WeekStrip(selected: date, onTap: _onDateChanged),
+                const SizedBox(height: 24),
+                Text(
+                  isSameDay(date, now) ? '今天的安排' : '${date.month}月${date.day}日 的安排',
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2),
+                ),
+                const SizedBox(height: 12),
+                _summaryCard(store, totals),
+                const SizedBox(height: 16),
+                _chips(),
+                const SizedBox(height: 12),
+                if (list.isEmpty)
+                  _empty(context)
+                else
+                  ...list.map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _EntryCard(entry: e),
+                      )),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          _summaryCard(store, totals),
-          const SizedBox(height: 16),
-          _chips(),
-          const SizedBox(height: 12),
-          if (list.isEmpty)
-            _empty(context)
-          else
-            ...list.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _EntryCard(entry: e),
-                )),
+          // 吸顶日期栏：滚过日期区后从顶部淡入
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: !_showStickyDate,
+              child: AnimatedSlide(
+                offset: _showStickyDate ? Offset.zero : const Offset(0, -1.4),
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: _showStickyDate ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _StickyDateBar(
+                    date: date,
+                    showTodayButton: !isSameDay(date, now),
+                    onToday: () => _onDateChanged(now),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -86,7 +143,7 @@ class _PlanScreenState extends State<PlanScreen> {
         ),
         const Spacer(),
         IconButton(
-          onPressed: () => widget.onDateChanged(now),
+          onPressed: () => _onDateChanged(now),
           icon: const Icon(Icons.calendar_today_outlined, size: 22, color: AppColors.text),
           tooltip: '回到今天',
         ),
@@ -112,7 +169,7 @@ class _PlanScreenState extends State<PlanScreen> {
         SizedBox(
           height: 34,
           child: TextButton(
-            onPressed: isToday ? null : () => widget.onDateChanged(now),
+            onPressed: isToday ? null : () => _onDateChanged(now),
             style: TextButton.styleFrom(
               minimumSize: const Size(0, 34),
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -466,6 +523,62 @@ class _EntryCard extends StatelessWidget {
         child: MacroRow(n: n),
       ),
     ],
+      ),
+    );
+  }
+}
+
+
+/// 吸顶日期栏：滚动越过日期区后从顶部淡入的毛玻璃小条
+class _StickyDateBar extends StatelessWidget {
+  final DateTime date;
+  final bool showTodayButton;
+  final VoidCallback onToday;
+
+  const _StickyDateBar({
+    required this.date,
+    required this.showTodayButton,
+    required this.onToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: GlassSurface(
+        radius: 20,
+        child: SizedBox(
+          height: 52,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text('${date.month}月${date.day}日',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 8),
+                Text(weekdayLabel(date),
+                    style: const TextStyle(fontSize: 13, color: AppColors.subtext)),
+                const Spacer(),
+                if (showTodayButton)
+                  PressableScale(
+                    onTap: onToday,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: ShapeDecoration(
+                        color: AppColors.accentSoft,
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('回到今天',
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -132,7 +132,7 @@ class _FoodsList extends StatelessWidget {
       return const _EmptyHint(emoji: '🥗', text: '没有找到食材\n点右上角 + 添加常用食材');
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 116),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
       itemCount: foods.length,
       itemBuilder: (context, i) {
         final food = foods[i];
@@ -216,7 +216,7 @@ class _MealsList extends StatelessWidget {
     }
     final store = context.read<AppStore>();
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 116),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
       itemCount: meals.length,
       itemBuilder: (context, i) {
         final meal = meals[i];

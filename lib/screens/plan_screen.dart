@@ -74,7 +74,7 @@ class _PlanScreenState extends State<PlanScreen> {
             onNotification: _onScrollNotification,
             child: ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
               children: [
                 _header(context, now),
                 const SizedBox(height: 20),

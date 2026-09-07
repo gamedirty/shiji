@@ -87,19 +87,19 @@ class GlassNavBar extends StatelessWidget {
                         child: Container(
                           width: 60,
                           height: 44,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF37A5FF), Color(0xFF0A7AFF)],
-                            ),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: const Color(0x66FFFFFF), width: 1),
-                            boxShadow: const [
-                              BoxShadow(
-                                  color: Color(0x590A7AFF), blurRadius: 14, offset: Offset(0, 5)),
-                            ],
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFF35C287), Color(0xFF0E9F6E)],
                           ),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: const Color(0x66FFFFFF), width: 1),
+                          boxShadow: const [
+                            BoxShadow(
+                                color: Color(0x59129B6C), blurRadius: 14, offset: Offset(0, 5)),
+                          ],
+                        ),
                           child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
                         ),
                       ),

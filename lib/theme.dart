@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 class AppColors {
   static const bg = Color(0xFFF2F3F7);
   static const card = Colors.white;
-  static const accent = Color(0xFF0A7AFF);
-  static const accentSoft = Color(0x140A7AFF); // 8% 蓝
+  static const accent = Color(0xFF0E9F6E); // 新鲜墨绿
+  static const accentSoft = Color(0x170E9F6E);
   static const text = Color(0xFF1C1C1E);
   static const subtext = Color(0xFF8A8F98);
   static const divider = Color(0xFFECECF0);

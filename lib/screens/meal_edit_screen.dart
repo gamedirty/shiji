@@ -146,7 +146,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.accentSoft,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0x330A7AFF)),
+                        border: Border.all(color: const Color(0x330E9F6E)),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,

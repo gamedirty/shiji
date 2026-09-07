@@ -376,7 +376,7 @@ class WeekStrip extends StatelessWidget {
                         ? Border.all(color: AppColors.accent, width: 1.2)
                         : null,
                     boxShadow: isSel
-                        ? const [BoxShadow(color: Color(0x440A7AFF), blurRadius: 10, offset: Offset(0, 4))]
+                        ? const [BoxShadow(color: Color(0x440E9F6E), blurRadius: 10, offset: Offset(0, 4))]
                         : null,
                   ),
                   child: Text('${day.day}',

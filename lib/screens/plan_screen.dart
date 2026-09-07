@@ -146,11 +146,11 @@ class _PlanScreenState extends State<PlanScreen> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0A84FF), Color(0xFF5E5CE6)],
+            colors: [Color(0xFF0C8A5F), Color(0xFF26B26D)],
           ),
           shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(26)),
           shadows: const [
-            BoxShadow(color: Color(0x3D5E5CE6), blurRadius: 20, offset: Offset(0, 8)),
+            BoxShadow(color: Color(0x3D26B26D), blurRadius: 20, offset: Offset(0, 8)),
           ],
         ),
         child: Column(

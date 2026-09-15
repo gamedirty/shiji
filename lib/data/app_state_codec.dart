@@ -211,8 +211,17 @@ class AppStateCodec {
     final id = _id(j, '记录');
     final where = '记录 $id';
     final dateKey = _str(j, 'dateKey', where);
-    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(dateKey) ||
-        DateTime.tryParse(dateKey) == null) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(dateKey);
+    var dateValid = false;
+    if (m != null) {
+      final parsedDate = DateTime.tryParse(dateKey);
+      dateValid =
+          parsedDate != null &&
+          parsedDate.year == int.parse(m.group(1)!) &&
+          parsedDate.month == int.parse(m.group(2)!) &&
+          parsedDate.day == int.parse(m.group(3)!);
+    }
+    if (!dateValid) {
       throw FormatException('$where 的日期非法');
     }
     final type = _enum(j, 'type', where, {

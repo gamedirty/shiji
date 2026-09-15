@@ -436,6 +436,31 @@ void main() {
         'meals': [],
         'diary': [],
       }),
+      // 不存在的日期（DateTime 会静默归一化，必须拒绝）
+      jsonEncode({
+        'app': 'shiji',
+        'schemaVersion': 2,
+        'targets': {'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 67},
+        'foods': [],
+        'meals': [],
+        'diary': [
+          {
+            'id': 'd1',
+            'dateKey': '2026-02-30',
+            'type': 'lunch',
+            'source': 'food',
+            'refId': 'f1',
+            'status': 'planned',
+            'grams': 50,
+            'title': 'x',
+            'emoji': '🍽️',
+            'protein': 0,
+            'carbs': 0,
+            'fat': 0,
+            'items': [],
+          },
+        ],
+      }),
     ];
     for (final bad in cases) {
       expect(await store.importJson(bad), isFalse, reason: bad);

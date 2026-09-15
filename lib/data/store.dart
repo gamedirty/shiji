@@ -74,8 +74,12 @@ class AppStore extends ChangeNotifier {
       final legacyFoods = _prefs.getString(_kFoods);
       final legacyMeals = _prefs.getString(_kMeals);
       final legacyDiary = _prefs.getString(_kDiary);
+      final legacyKcal = _prefs.getDouble(_kLegacyTarget);
       final hasLegacy =
-          legacyFoods != null || legacyMeals != null || legacyDiary != null;
+          legacyFoods != null ||
+          legacyMeals != null ||
+          legacyDiary != null ||
+          legacyKcal != null;
 
       if (stateJson != null) {
         _apply(AppStateCodec.decode(stateJson));
@@ -85,7 +89,7 @@ class AppStore extends ChangeNotifier {
           foodsJson: legacyFoods,
           mealsJson: legacyMeals,
           diaryJson: legacyDiary,
-          legacyKcalTarget: _prefs.getDouble(_kLegacyTarget),
+          legacyKcalTarget: legacyKcal,
         );
         // 写盘成功才切换并清理旧键；失败时旧数据原样保留，可重试
         if (!await _writeState(migrated)) {
@@ -462,8 +466,24 @@ class AppStore extends ChangeNotifier {
   });
 
   static bool _isValidDateKey(String key) {
-    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(key)) return false;
-    return DateTime.tryParse(key) != null;
+    return _realDate(key) != null;
+  }
+
+  /// 严格日期解析：拒绝 2026-02-30 这类被 DateTime 静默归一化的字符串
+  static DateTime? _realDate(String key) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(key);
+    if (m == null) return null;
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final parsed = DateTime.tryParse(key);
+    if (parsed == null ||
+        parsed.year != y ||
+        parsed.month != mo ||
+        parsed.day != d) {
+      return null;
+    }
+    return parsed;
   }
 
   // ---------- 查询 / 计算 ----------

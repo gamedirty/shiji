@@ -560,9 +560,19 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
               ),
             ),
           ),
-          Text(
-            '${fmtNum(_selGrams)} g',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          PressableScale(
+            semanticLabel: '输入克数',
+            onTap: () => _inputGrams(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '${fmtNum(_selGrams)} g',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
           PressableScale(
             onTap: () => setState(() => _selGrams += step),
@@ -582,7 +592,20 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     _selGrams = 100;
   }
 
-  void _add(EntryStatus status) {
+  /// 点克数直接输入任意值；快捷项按"半份/一份/1.5份/两份"给出
+  Future<void> _inputGrams() async {
+    final store = context.read<AppStore>();
+    final step = _stepGrams(store);
+    final g = await GramDialog.show(
+      context,
+      title: '输入克数',
+      initial: _selGrams,
+      quickGrams: [step, step * 2, step * 3, step * 4],
+    );
+    if (g != null) setState(() => _selGrams = g);
+  }
+
+  Future<void> _add(EntryStatus status) async {
     final store = context.read<AppStore>();
     final source = _selSource!;
     final entry = store.buildEntry(
@@ -593,19 +616,20 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       grams: _selGrams,
       status: status,
     );
-    store.addEntry(entry);
-    final name = entry.title;
-    final action = status == EntryStatus.consumed ? '已记录' : '已加入计划';
+    final ok = await store.addEntry(entry);
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '$action「$name」到 ${_date.month}月${_date.day}日 · ${_type.label}',
+            ok
+                ? '${status == EntryStatus.consumed ? "已记录" : "已加入计划"}「${entry.title}」到 ${_date.month}月${_date.day}日 · ${_type.label}'
+                : (store.lastWriteError ?? '保存失败，请重试'),
           ),
           duration: const Duration(milliseconds: 1200),
         ),
       );
-    setState(_clearSelection);
+    if (ok) setState(_clearSelection);
   }
 }

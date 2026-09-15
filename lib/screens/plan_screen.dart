@@ -55,16 +55,103 @@ class _PlanScreenState extends State<PlanScreen> {
     return false;
   }
 
+  static final DateTime _firstDate = DateTime.now().subtract(
+    const Duration(days: 730),
+  );
+  static final DateTime _lastDate = DateTime.now().add(
+    const Duration(days: 730),
+  );
+
+  /// 所有日期入口共用同一范围，翻周不会翻出日期选择器之外
+  DateTime _clamp(DateTime d) {
+    final ms = d.millisecondsSinceEpoch.clamp(
+      _firstDate.millisecondsSinceEpoch,
+      _lastDate.millisecondsSinceEpoch,
+    );
+    return DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
   Future<void> _pickDate(DateTime initial) async {
-    final now = DateTime.now();
     final d = await showDatePicker(
       context: context,
-      initialDate: initial,
-      firstDate: now.subtract(const Duration(days: 730)),
-      lastDate: now.add(const Duration(days: 730)),
+      initialDate: _clamp(initial),
+      firstDate: _firstDate,
+      lastDate: _lastDate,
       helpText: '选择日期',
     );
     if (d != null) _onDateChanged(d);
+  }
+
+  /// 计划复用：把前一天有内容的条目复制为这一天的计划
+  Future<void> _copyPreviousDay() async {
+    final store = context.read<AppStore>();
+    final target = widget.selectedDate;
+    final sourceKey = dateKeyOf(target.subtract(const Duration(days: 1)));
+    final targetKey = dateKeyOf(target);
+    if (store
+        .entriesFor(sourceKey)
+        .every((e) => e.status == EntryStatus.skipped)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('前一天没有可复制的饮食'),
+          duration: Duration(milliseconds: 1200),
+        ),
+      );
+      return;
+    }
+    String? choice = 'merge';
+    if (store
+        .entriesFor(targetKey)
+        .any((e) => e.status == EntryStatus.planned)) {
+      if (!mounted) return;
+      choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('这一天已有计划'),
+          content: const Text('合并：保留现有计划，追加前一天的条目。\n替换：清掉现有计划后复制（已吃和跳过的不受影响）。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                '取消',
+                style: TextStyle(color: AppColors.subtext),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'replace'),
+              child: const Text('替换'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'merge'),
+              child: const Text(
+                '合并',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (choice == null || !mounted) return;
+    final n = await store.copyDay(
+      sourceKey,
+      targetKey,
+      replaceExisting: choice == 'replace',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(switch (n) {
+          -1 => store.lastWriteError ?? '复制失败',
+          0 => '前一天没有可复制的饮食',
+          _ => '已复制 $n 项到 ${target.month}月${target.day}日 的计划',
+        }),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
   }
 
   @override
@@ -215,6 +302,15 @@ class _PlanScreenState extends State<PlanScreen> {
           ),
         ),
         const Spacer(),
+        IconButton(
+          onPressed: _copyPreviousDay,
+          icon: const Icon(
+            Icons.copy_rounded,
+            size: 20,
+            color: AppColors.subtext,
+          ),
+          tooltip: '复制前一天到这一天',
+        ),
         // 固定行高 + 紧凑按钮，保证按钮出现/消失时不改变行高（避免列表抖动）
         SizedBox(
           height: 34,
@@ -246,7 +342,7 @@ class _PlanScreenState extends State<PlanScreen> {
       children: [
         _weekArrow(
           Icons.chevron_left_rounded,
-          () => _onDateChanged(date.subtract(const Duration(days: 7))),
+          () => _onDateChanged(_clamp(date.subtract(const Duration(days: 7)))),
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -255,7 +351,7 @@ class _PlanScreenState extends State<PlanScreen> {
         const SizedBox(width: 4),
         _weekArrow(
           Icons.chevron_right_rounded,
-          () => _onDateChanged(date.add(const Duration(days: 7))),
+          () => _onDateChanged(_clamp(date.add(const Duration(days: 7)))),
         ),
       ],
     );
@@ -373,98 +469,129 @@ class _PlanScreenState extends State<PlanScreen> {
     final protein = TextEditingController(text: t.protein.round().toString());
     final carbs = TextEditingController(text: t.carbs.round().toString());
     final fat = TextEditingController(text: t.fat.round().toString());
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('每日目标'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const FieldLabel('热量（千卡）'),
-            const SizedBox(height: 6),
-            TextField(
-              controller: kcal,
-              keyboardType: TextInputType.number,
-              inputFormatters: [NumericTextFormatter()],
-              decoration: const InputDecoration(
-                suffixText: '千卡',
-                suffixStyle: TextStyle(color: AppColors.subtext),
+    try {
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('每日目标'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FieldLabel('热量（千卡）'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: kcal,
+                keyboardType: TextInputType.number,
+                inputFormatters: [NumericTextFormatter()],
+                decoration: const InputDecoration(
+                  suffixText: '千卡',
+                  suffixStyle: TextStyle(color: AppColors.subtext),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const FieldLabel('三大营养素（克）'),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: protein,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [NumericTextFormatter()],
+                      decoration: const InputDecoration(
+                        hintText: '蛋白',
+                        suffixText: 'g',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: carbs,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [NumericTextFormatter()],
+                      decoration: const InputDecoration(
+                        hintText: '碳水',
+                        suffixText: 'g',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: fat,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [NumericTextFormatter()],
+                      decoration: const InputDecoration(
+                        hintText: '脂肪',
+                        suffixText: 'g',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                '取消',
+                style: TextStyle(color: AppColors.subtext),
               ),
             ),
-            const SizedBox(height: 12),
-            const FieldLabel('三大营养素（克）'),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: protein,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [NumericTextFormatter()],
-                    decoration: const InputDecoration(
-                      hintText: '蛋白',
-                      suffixText: 'g',
-                    ),
-                  ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                '保存',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: carbs,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [NumericTextFormatter()],
-                    decoration: const InputDecoration(
-                      hintText: '碳水',
-                      suffixText: 'g',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: fat,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [NumericTextFormatter()],
-                    decoration: const InputDecoration(
-                      hintText: '脂肪',
-                      suffixText: 'g',
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: AppColors.subtext)),
+      );
+      if (saved != true || !mounted) return;
+      // 在释放控制器前取值
+      final kcalText = kcal.text;
+      final proteinText = protein.text;
+      final carbsText = carbs.text;
+      final fatText = fat.text;
+      final kcalV = double.tryParse(kcalText.trim()) ?? 0;
+      if (kcalV < 100) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('热量目标至少 100 千卡'),
+            duration: Duration(milliseconds: 1200),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              '保存',
-              style: TextStyle(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+        );
+        return;
+      }
+      final ok = await store.setTargets(
+        NutritionTargets(
+          kcal: kcalV,
+          protein: double.tryParse(proteinText.trim()) ?? 0,
+          carbs: double.tryParse(carbsText.trim()) ?? 0,
+          fat: double.tryParse(fatText.trim()) ?? 0,
+        ),
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(store.lastWriteError ?? '目标保存失败'),
+            duration: const Duration(milliseconds: 1200),
           ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final kcalV = double.tryParse(kcal.text.trim()) ?? 0;
-    if (kcalV < 100) return;
-    await store.setTargets(
-      NutritionTargets(
-        kcal: kcalV,
-        protein: double.tryParse(protein.text.trim()) ?? 0,
-        carbs: double.tryParse(carbs.text.trim()) ?? 0,
-        fat: double.tryParse(fat.text.trim()) ?? 0,
-      ),
-    );
+        );
+      }
+    } finally {
+      kcal.dispose();
+      protein.dispose();
+      carbs.dispose();
+      fat.dispose();
+    }
   }
 
   Widget _chips() {
@@ -623,9 +750,12 @@ class _EntryCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PressableScale(
+                semanticLabel: '切换完成状态',
                 onTap: () => store.setEntryStatus(
                   entry.id,
-                  consumed ? EntryStatus.planned : EntryStatus.consumed,
+                  entry.status == EntryStatus.planned
+                      ? EntryStatus.consumed
+                      : EntryStatus.planned,
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -715,7 +845,9 @@ class _EntryCard extends StatelessWidget {
                     case 'toggle':
                       store.setEntryStatus(
                         entry.id,
-                        consumed ? EntryStatus.planned : EntryStatus.consumed,
+                        entry.status == EntryStatus.planned
+                            ? EntryStatus.consumed
+                            : EntryStatus.planned,
                       );
                     case 'skip':
                       store.setEntryStatus(
@@ -729,14 +861,21 @@ class _EntryCard extends StatelessWidget {
                         subtitle: '营养按创建时的食材定义换算',
                         initial: entry.grams,
                       );
-                      if (g != null) store.setEntryGrams(entry.id, g);
+                      if (g != null) {
+                        await store.setEntryGrams(entry.id, g);
+                        if (context.mounted && store.lastWriteError != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(store.lastWriteError!)),
+                          );
+                        }
+                      }
                     case 'delete':
                       final ok = await confirmDelete(
                         context,
                         '删除这条记录',
                         '将从 ${entry.dateKey} 的${entry.type.label}中移除。',
                       );
-                      if (ok) store.removeEntry(entry.id);
+                      if (ok) await store.removeEntry(entry.id);
                   }
                 },
                 itemBuilder: (_) => [
@@ -753,7 +892,9 @@ class _EntryCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          consumed ? '标记为未吃' : '标记为已吃',
+                          entry.status == EntryStatus.planned
+                              ? '标记为已吃'
+                              : '改回计划',
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],

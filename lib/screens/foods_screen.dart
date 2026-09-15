@@ -305,7 +305,18 @@ class _FoodsList extends StatelessWidget {
             '删除食材',
             '「${food.name}」会从组合餐配方中移除；已有的饮食记录是快照，不受影响。确定删除吗？',
           ),
-          onDismissed: (_) => context.read<AppStore>().removeFood(food.id),
+          onDismissed: (_) async {
+            final store = context.read<AppStore>();
+            final ok = await store.removeFood(food.id);
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(store.lastWriteError ?? '删除失败'),
+                  duration: const Duration(milliseconds: 1200),
+                ),
+              );
+            }
+          },
           child: _FoodTile(food: food),
         );
       },
@@ -423,7 +434,17 @@ class _MealsList extends StatelessWidget {
             '删除组合餐',
             '「${meal.name}」会被移除；已有的饮食记录是快照，不受影响。确定删除吗？',
           ),
-          onDismissed: (_) => store.removeMeal(meal.id),
+          onDismissed: (_) async {
+            final ok = await store.removeMeal(meal.id);
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(store.lastWriteError ?? '删除失败'),
+                  duration: const Duration(milliseconds: 1200),
+                ),
+              );
+            }
+          },
           child: _MealTile(meal: meal),
         );
       },

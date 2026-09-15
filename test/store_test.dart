@@ -75,7 +75,7 @@ void main() {
       const Food(id: 'f1', name: '米饭（熟）', carbs: 28.2, servingGrams: 200),
     );
     await store.upsertMeal(
-      const MealTemplate(
+      MealTemplate(
         id: 'm1',
         name: '能量碗',
         items: [MealComponent(foodId: 'f1', grams: 200)],
@@ -108,7 +108,7 @@ void main() {
       const Food(id: 'f1', name: '米饭（熟）', carbs: 28.2, servingGrams: 200),
     );
     await store.upsertMeal(
-      const MealTemplate(
+      MealTemplate(
         id: 'm1',
         name: '一碗饭',
         items: [MealComponent(foodId: 'f1', grams: 200)],
@@ -260,5 +260,188 @@ void main() {
     await store.setEntryStatus(plannedEntry.id, EntryStatus.consumed);
     expect(store.consumedTotalsFor('2026-09-15').protein, closeTo(19.95, 1e-9));
     expect(store.plannedTotalsFor('2026-09-15').protein, 0);
+  });
+  // ---------- 第 2 轮评审回归 ----------
+
+  test('调整克数：按原快照等比缩放，不受来源修改影响', () async {
+    final store = await freshStore({});
+    await store.upsertFood(
+      const Food(id: 'f1', name: '鸡胸肉', protein: 24, carbs: 0.6, fat: 3.4),
+    );
+    final e = store.buildEntry(
+      dateKey: '2026-09-15',
+      type: MealType.lunch,
+      source: EntrySource.food,
+      refId: 'f1',
+      grams: 100,
+      status: EntryStatus.consumed,
+    );
+    await store.addEntry(e);
+    // 之后来源被改成完全不同的定义
+    await store.upsertFood(
+      const Food(id: 'f1', name: '鸡胸肉（改）', protein: 99, servingGrams: 200),
+    );
+    final ok = await store.setEntryGrams(e.id, 200);
+    expect(ok, isTrue);
+    final updated = store.diary.first;
+    expect(updated.title, '鸡胸肉'); // 快照名不被污染
+    expect(updated.grams, 200);
+    expect(updated.protein, closeTo(48, 1e-9)); // 24 × 2，而非 99 × 2
+  });
+
+  test('调整克数：零克数的异常快照被拒绝且数据不变', () async {
+    final store = await freshStore({});
+    final e = DiaryEntry(
+      id: 'd0',
+      dateKey: '2026-09-15',
+      type: MealType.lunch,
+      source: EntrySource.food,
+      refId: 'gone',
+      grams: 0,
+    );
+    await store.addEntry(e);
+    final ok = await store.setEntryGrams('d0', 100);
+    expect(ok, isFalse);
+    expect(store.diary.first.grams, 0);
+  });
+
+  test('删除食材后 meals 列表与 mealById 索引一致', () async {
+    final store = await freshStore({});
+    await store.upsertFood(
+      const Food(id: 'f1', name: '米饭（熟）', carbs: 28.2, servingGrams: 200),
+    );
+    await store.upsertMeal(
+      MealTemplate(
+        id: 'm1',
+        name: '一碗饭',
+        items: [MealComponent(foodId: 'f1', grams: 200)],
+      ),
+    );
+    await store.removeFood('f1');
+    final fromList = store.meals.firstWhere((m) => m.id == 'm1');
+    final fromIndex = store.mealById('m1')!;
+    expect(identical(fromList, fromIndex), isTrue);
+    expect(fromIndex.items, isEmpty);
+    // 配方清空后组合餐营养为 0，但历史记录不受影响
+    expect(store.mealNutrition(fromIndex).calories, 0);
+  });
+
+  test('init 重复调用（重试）不会重复预置数据', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = AppStore();
+    await store.init();
+    await store.init();
+    expect(store.foods.length, greaterThanOrEqualTo(20));
+    expect(store.meals.length, 3);
+    expect(store.diary, isEmpty);
+  });
+
+  test('copyDay：复制为计划、跳过项不复制、替换只清目标日计划', () async {
+    final store = await freshStore({});
+    await store.upsertFood(
+      const Food(
+        id: 'f1',
+        name: '鸡蛋',
+        protein: 13.3,
+        carbs: 1.5,
+        fat: 10,
+        servingGrams: 50,
+      ),
+    );
+    await store.addEntry(
+      store.buildEntry(
+        dateKey: '2026-09-14',
+        type: MealType.breakfast,
+        source: EntrySource.food,
+        refId: 'f1',
+        grams: 50,
+        status: EntryStatus.consumed,
+      ),
+    );
+    await store.addEntry(
+      store.buildEntry(
+        dateKey: '2026-09-14',
+        type: MealType.lunch,
+        source: EntrySource.food,
+        refId: 'f1',
+        grams: 100,
+      ),
+    );
+    final skip = store.buildEntry(
+      dateKey: '2026-09-14',
+      type: MealType.snack,
+      source: EntrySource.food,
+      refId: 'f1',
+      grams: 25,
+    );
+    await store.addEntry(skip);
+    await store.setEntryStatus(skip.id, EntryStatus.skipped);
+
+    final n = await store.copyDay('2026-09-14', '2026-09-15');
+    expect(n, 2); // 跳过项不复制
+    final copied = store.entriesFor('2026-09-15');
+    expect(copied.length, 2);
+    expect(copied.every((e) => e.status == EntryStatus.planned), isTrue);
+    expect(copied.first.title, '鸡蛋');
+
+    // 目标日已有计划 → replaceExisting 只清计划，且再复制 2 条
+    final n2 = await store.copyDay(
+      '2026-09-14',
+      '2026-09-15',
+      replaceExisting: true,
+    );
+    expect(n2, 2);
+    expect(store.entriesFor('2026-09-15').length, 2);
+    // 源日的数据原封不动
+    expect(store.entriesFor('2026-09-14').length, 3);
+  });
+
+  test('导入：空对象、错误应用、未来版本都被拒绝且不改动数据', () async {
+    final store = await freshStore({});
+    final before = store.foods.length;
+    final cases = [
+      '{}',
+      jsonEncode({
+        'app': 'other',
+        'schemaVersion': 2,
+        'foods': [],
+        'meals': [],
+        'diary': [],
+      }),
+      jsonEncode({
+        'app': 'shiji',
+        'schemaVersion': 99,
+        'foods': [],
+        'meals': [],
+        'diary': [],
+      }),
+    ];
+    // 结构完整的空备份是合法的（用户明确恢复为空），只拒绝缺字段/错应用/未来版本
+    for (final bad in cases) {
+      expect(await store.importJson(bad), isFalse, reason: bad);
+      expect(store.foods.length, before, reason: bad);
+    }
+  });
+
+  test('导入：引用不存在食材的组合餐被拒绝', () async {
+    final store = await freshStore({});
+    final bad = jsonEncode({
+      'app': 'shiji',
+      'schemaVersion': 2,
+      'targets': {'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 67},
+      'foods': [],
+      'meals': [
+        {
+          'id': 'm1',
+          'name': '坏配方',
+          'items': [
+            {'foodId': 'ghost', 'grams': 100},
+          ],
+        },
+      ],
+      'diary': [],
+    });
+    expect(await store.importJson(bad), isFalse);
+    expect(store.meals, isNotEmpty); // 原有种子数据仍在
   });
 }

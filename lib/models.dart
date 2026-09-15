@@ -213,13 +213,28 @@ class MealTemplate {
   final int prepMinutes;
   final List<MealComponent> items;
 
-  const MealTemplate({
+  const MealTemplate._({
     required this.id,
     required this.name,
     this.emoji = '🍱',
     this.prepMinutes = 0,
     this.items = const [],
   });
+
+  /// items 一律包装为不可修改列表：调用方无法绕过 Store 静默修改配方
+  factory MealTemplate({
+    required String id,
+    required String name,
+    String emoji = '🍱',
+    int prepMinutes = 0,
+    List<MealComponent>? items,
+  }) => MealTemplate._(
+    id: id,
+    name: name,
+    emoji: emoji,
+    prepMinutes: prepMinutes,
+    items: items == null ? const [] : List.unmodifiable(items),
+  );
 
   MealTemplate copyWith({
     String? id,
@@ -325,7 +340,7 @@ class DiaryEntry {
   final List<EntryItem> items; // 组合餐明细快照
   final String? consumedAt; // 标记已吃的时间（ISO8601）
 
-  const DiaryEntry({
+  const DiaryEntry._({
     required this.id,
     required this.dateKey,
     required this.type,
@@ -341,6 +356,39 @@ class DiaryEntry {
     this.items = const [],
     this.consumedAt,
   });
+
+  /// items 一律包装为不可修改列表：快照不可被外部改写
+  factory DiaryEntry({
+    required String id,
+    required String dateKey,
+    required MealType type,
+    required EntrySource source,
+    required String refId,
+    EntryStatus status = EntryStatus.planned,
+    double grams = 0,
+    String title = '',
+    String emoji = '🍽️',
+    double protein = 0,
+    double carbs = 0,
+    double fat = 0,
+    List<EntryItem>? items,
+    String? consumedAt,
+  }) => DiaryEntry._(
+    id: id,
+    dateKey: dateKey,
+    type: type,
+    source: source,
+    refId: refId,
+    status: status,
+    grams: grams,
+    title: title,
+    emoji: emoji,
+    protein: protein,
+    carbs: carbs,
+    fat: fat,
+    items: items == null ? const [] : List.unmodifiable(items),
+    consumedAt: consumedAt,
+  );
 
   Nutrition get nutrition =>
       Nutrition(protein: protein, carbs: carbs, fat: fat);

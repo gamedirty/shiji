@@ -361,7 +361,17 @@ class _MealEditScreenState extends State<MealEditScreen> {
             '「${meal.name}」会被移除；已有的饮食记录不受影响。',
           );
           if (!ok || !context.mounted) return;
-          await context.read<AppStore>().removeMeal(meal.id);
+          final store = context.read<AppStore>();
+          final done = await store.removeMeal(meal.id);
+          if (!done && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(store.lastWriteError ?? '删除失败'),
+                duration: const Duration(milliseconds: 1200),
+              ),
+            );
+            return;
+          }
           if (context.mounted) Navigator.of(context).pop();
         },
       ),
@@ -388,16 +398,35 @@ class _MealEditScreenState extends State<MealEditScreen> {
       );
       return;
     }
-    await context.read<AppStore>().upsertMeal(
+    // 同一食材重复添加时合并克数（配方不允许重复项）
+    final merged = <String, MealComponent>{};
+    for (final c in _items) {
+      final prev = merged[c.foodId];
+      merged[c.foodId] = prev == null
+          ? c
+          : prev.copyWith(grams: prev.grams + c.grams);
+    }
+    final store = context.read<AppStore>();
+    final ok = await store.upsertMeal(
       MealTemplate(
         id: widget.meal?.id ?? genId(),
         name: name,
         emoji: _emoji,
         prepMinutes: int.tryParse(_prep.text.trim()) ?? 0,
-        items: List.of(_items),
+        items: merged.values.toList(),
       ),
     );
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(store.lastWriteError ?? '保存失败'),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop();
   }
 }
 

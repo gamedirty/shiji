@@ -16,6 +16,7 @@ class PressableScale extends StatefulWidget {
   final VoidCallback? onTap;
   final double scale;
   final HitTestBehavior behavior;
+  final String? semanticLabel;
 
   const PressableScale({
     super.key,
@@ -23,6 +24,7 @@ class PressableScale extends StatefulWidget {
     this.onTap,
     this.scale = 0.965,
     this.behavior = HitTestBehavior.deferToChild,
+    this.semanticLabel,
   });
 
   @override
@@ -35,20 +37,24 @@ class _PressableScaleState extends State<PressableScale> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
-    return GestureDetector(
-      behavior: widget.behavior,
-      onTapDown: enabled ? (_) => setState(() => _down = true) : null,
-      onTapUp: enabled ? (_) => setState(() => _down = false) : null,
-      onTapCancel: enabled ? () => setState(() => _down = false) : null,
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? widget.scale : 1.0,
-        duration: const Duration(milliseconds: 110),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _down ? 0.86 : 1.0,
+    return Semantics(
+      button: enabled,
+      label: widget.semanticLabel,
+      child: GestureDetector(
+        behavior: widget.behavior,
+        onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+        onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+        onTapCancel: enabled ? () => setState(() => _down = false) : null,
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down ? widget.scale : 1.0,
           duration: const Duration(milliseconds: 110),
-          child: widget.child,
+          curve: Curves.easeOut,
+          child: AnimatedOpacity(
+            opacity: _down ? 0.86 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            child: widget.child,
+          ),
         ),
       ),
     );
@@ -555,109 +561,6 @@ class WeekStrip extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-}
-
-/// 份数调整对话框（步进 0.5 份）
-class QuantityDialog extends StatefulWidget {
-  final String title;
-  final String? subtitle;
-  final double initial;
-
-  const QuantityDialog({
-    super.key,
-    required this.title,
-    required this.initial,
-    this.subtitle,
-  });
-
-  static Future<double?> show(
-    BuildContext context, {
-    required String title,
-    required double initial,
-    String? subtitle,
-  }) {
-    return showDialog<double>(
-      context: context,
-      builder: (_) =>
-          QuantityDialog(title: title, initial: initial, subtitle: subtitle),
-    );
-  }
-
-  @override
-  State<QuantityDialog> createState() => _QuantityDialogState();
-}
-
-class _QuantityDialogState extends State<QuantityDialog> {
-  late double _v = widget.initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.subtitle != null)
-            Text(
-              widget.subtitle!,
-              style: const TextStyle(fontSize: 12, color: AppColors.subtext),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _stepButton(
-                Icons.remove_rounded,
-                _v > 0.5 ? () => setState(() => _v -= 0.5) : null,
-              ),
-              const SizedBox(width: 20),
-              Text(
-                '${fmtNum(_v)} 份',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 20),
-              _stepButton(Icons.add_rounded, () => setState(() => _v += 0.5)),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_v),
-          child: const Text('确定'),
-        ),
-      ],
-    );
-  }
-
-  Widget _stepButton(IconData icon, VoidCallback? onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: onTap == null ? AppColors.bg : Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.divider),
-        ),
-        alignment: Alignment.center,
-        child: Icon(
-          icon,
-          size: 22,
-          color: onTap == null ? AppColors.subtext : AppColors.accent,
-        ),
-      ),
     );
   }
 }

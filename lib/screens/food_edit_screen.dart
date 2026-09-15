@@ -328,14 +328,24 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
             '「${food.name}」会从组合餐配方中移除；已有的饮食记录是快照，不受影响。确定删除吗？',
           );
           if (!ok || !context.mounted) return;
-          context.read<AppStore>().removeFood(food.id);
-          Navigator.of(context).pop();
+          final store = context.read<AppStore>();
+          final done = await store.removeFood(food.id);
+          if (!done && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(store.lastWriteError ?? '删除失败'),
+                duration: const Duration(milliseconds: 1200),
+              ),
+            );
+            return;
+          }
+          if (context.mounted) Navigator.of(context).pop();
         },
       ),
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -347,8 +357,17 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
       return;
     }
     final grams = _parse(_grams);
+    if (!grams.isFinite || grams <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('一份的克数要大于 0'),
+          duration: Duration(milliseconds: 900),
+        ),
+      );
+      return;
+    }
     final store = context.read<AppStore>();
-    store.upsertFood(
+    final ok = await store.upsertFood(
       Food(
         id: widget.food?.id ?? genId(),
         name: name,
@@ -356,9 +375,19 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
         protein: _parse(_protein),
         carbs: _parse(_carbs),
         fat: _parse(_fat),
-        servingGrams: grams > 0 ? grams : 100,
+        servingGrams: grams,
       ),
     );
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(store.lastWriteError ?? '保存失败'),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop();
   }
 }

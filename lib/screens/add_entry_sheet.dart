@@ -37,8 +37,13 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     final foods = store.foods
         .where((f) => q.isEmpty || f.name.toLowerCase().contains(q))
         .toList();
+    // 空配方组合餐（食材全被删除）不可添加，避免生成无法调整的零克记录
     final meals = store.meals
-        .where((m) => q.isEmpty || m.name.toLowerCase().contains(q))
+        .where(
+          (m) =>
+              (q.isEmpty || m.name.toLowerCase().contains(q)) &&
+              m.items.isNotEmpty,
+        )
         .toList();
     final insets = MediaQuery.of(context).viewInsets.bottom;
 

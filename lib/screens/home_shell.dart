@@ -100,15 +100,11 @@ class GlassNavBar extends StatelessWidget {
                               colors: [Color(0xFF35C287), Color(0xFF0E9F6E)],
                             ),
                             borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: const Color(0x66FFFFFF),
-                              width: 1,
-                            ),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x59129B6C),
-                                blurRadius: 14,
-                                offset: Offset(0, 5),
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
@@ -149,7 +145,7 @@ class GlassNavBar extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 color: color,
               ),

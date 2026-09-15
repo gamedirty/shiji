@@ -290,19 +290,171 @@ void main() {
   });
 
   test('调整克数：零克数的异常快照被拒绝且数据不变', () async {
-    final store = await freshStore({});
-    final e = DiaryEntry(
-      id: 'd0',
-      dateKey: '2026-09-15',
-      type: MealType.lunch,
-      source: EntrySource.food,
-      refId: 'gone',
-      grams: 0,
-    );
-    await store.addEntry(e);
+    // 现在的 addEntry 会拒绝零克数；零克记录只能来自旧数据迁移（来源已删）
+    final store = await freshStore({
+      'shiji.foods': jsonEncode([]),
+      'shiji.meals': jsonEncode([]),
+      'shiji.diary': jsonEncode([
+        {
+          'id': 'd0',
+          'dateKey': '2026-09-15',
+          'type': 'lunch',
+          'source': 'food',
+          'refId': 'gone',
+          'servings': 0,
+        },
+      ]),
+    });
+    expect(store.diary.first.grams, 0);
     final ok = await store.setEntryGrams('d0', 100);
     expect(ok, isFalse);
     expect(store.diary.first.grams, 0);
+    // 新记录被拒绝零克数
+    expect(await store.addEntry(store.diary.first), isFalse);
+  });
+
+  test('并发提交不丢失更新（写队列内读状态）', () async {
+    final store = await freshStore({});
+    await store.upsertFood(
+      const Food(
+        id: 'f1',
+        name: '鸡蛋',
+        protein: 13.3,
+        carbs: 1.5,
+        fat: 10,
+        servingGrams: 50,
+      ),
+    );
+    final a = store.buildEntry(
+      dateKey: '2026-09-15',
+      type: MealType.breakfast,
+      source: EntrySource.food,
+      refId: 'f1',
+      grams: 50,
+    );
+    final b = store.buildEntry(
+      dateKey: '2026-09-15',
+      type: MealType.lunch,
+      source: EntrySource.food,
+      refId: 'f1',
+      grams: 100,
+    );
+    await Future.wait([store.addEntry(a), store.addEntry(b)]);
+    expect(store.diary.length, 2);
+  });
+
+  test('copyDay：源日期等于目标日期被拒绝', () async {
+    final store = await freshStore({});
+    final n = await store.copyDay('2026-09-15', '2026-09-15');
+    expect(n, -1);
+  });
+
+  test('copyDay：配方被清空的组合餐按历史快照复制', () async {
+    final store = await freshStore({});
+    await store.upsertFood(
+      const Food(id: 'f1', name: '米饭（熟）', carbs: 28.2, servingGrams: 200),
+    );
+    await store.upsertMeal(
+      MealTemplate(
+        id: 'm1',
+        name: '一碗饭',
+        items: [MealComponent(foodId: 'f1', grams: 200)],
+      ),
+    );
+    final e = store.buildEntry(
+      dateKey: '2026-09-14',
+      type: MealType.lunch,
+      source: EntrySource.meal,
+      refId: 'm1',
+      grams: 200,
+    );
+    await store.addEntry(e);
+    // 食材被删 → 组合餐配方清空，但历史快照完好
+    await store.removeFood('f1');
+
+    final n = await store.copyDay('2026-09-14', '2026-09-15');
+    expect(n, 1);
+    final copied = store.entriesFor('2026-09-15').first;
+    expect(copied.title, '一碗饭');
+    expect(copied.grams, 200);
+    expect(copied.nutrition.calories, closeTo(e.nutrition.calories, 1e-9));
+  });
+
+  test('导入：数组混入非对象、未知枚举、缺 targets 都被拒绝', () async {
+    final store = await freshStore({});
+    final foodsBefore = store.foods.length;
+    final cases = [
+      // foods 数组混入字符串
+      jsonEncode({
+        'app': 'shiji',
+        'schemaVersion': 2,
+        'targets': {'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 67},
+        'foods': ['x'],
+        'meals': [],
+        'diary': [],
+      }),
+      // 未知枚举值
+      jsonEncode({
+        'app': 'shiji',
+        'schemaVersion': 2,
+        'targets': {'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 67},
+        'foods': [
+          {
+            'id': 'f1',
+            'name': '鸡蛋',
+            'emoji': '🥚',
+            'protein': 0,
+            'carbs': 0,
+            'fat': 0,
+            'servingGrams': 50,
+          },
+        ],
+        'meals': [],
+        'diary': [
+          {
+            'id': 'd1',
+            'dateKey': '2026-09-15',
+            'type': 'lunch',
+            'source': 'food',
+            'refId': 'f1',
+            'status': 'weird',
+            'grams': 50,
+            'title': '鸡蛋',
+            'emoji': '🥚',
+            'protein': 0,
+            'carbs': 0,
+            'fat': 0,
+            'items': [],
+          },
+        ],
+      }),
+      // 缺 targets
+      jsonEncode({
+        'app': 'shiji',
+        'schemaVersion': 2,
+        'foods': [],
+        'meals': [],
+        'diary': [],
+      }),
+    ];
+    for (final bad in cases) {
+      expect(await store.importJson(bad), isFalse, reason: bad);
+      expect(store.foods.length, foodsBefore, reason: bad);
+    }
+  });
+
+  test('导入成功会清除加载错误并标记已加载（灾难恢复）', () async {
+    final source = await freshStore({});
+    final backup = source.exportJson();
+
+    final store = await freshStore({});
+    store.loadError = '模拟加载失败';
+    store.loaded = false;
+    final ok = await store.importJson(backup);
+    expect(ok, isTrue);
+    expect(store.loaded, isTrue);
+    expect(store.loadError, isNull);
+    expect(store.foods.length, source.foods.length);
   });
 
   test('删除食材后 meals 列表与 mealById 索引一致', () async {

@@ -142,7 +142,7 @@ class GlassSurface extends StatelessWidget {
       child: ClipRSuperellipse(
         borderRadius: BorderRadius.circular(radius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
@@ -150,7 +150,7 @@ class GlassSurface extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xE8F4FAF4), Color(0xD2EAF3EC)],
+                colors: [Color(0xF2F4FAF4), Color(0xE6EAF3EC)],
               ),
             ),
             child: child,
@@ -863,10 +863,14 @@ class StoreErrorView extends StatelessWidget {
   final String message;
   final Future<void> Function() onRetry;
 
+  /// 灾难恢复入口：数据加载失败时仍可从剪贴板备份恢复
+  final Future<void> Function()? onRestore;
+
   const StoreErrorView({
     super.key,
     required this.message,
     required this.onRetry,
+    this.onRestore,
   });
 
   @override
@@ -897,6 +901,17 @@ class StoreErrorView extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded, size: 20),
               label: const Text('重试'),
             ),
+            if (onRestore != null) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () => onRestore!(),
+                icon: const Icon(
+                  Icons.settings_backup_restore_rounded,
+                  size: 18,
+                ),
+                label: const Text('从剪贴板备份恢复'),
+              ),
+            ],
           ],
         ),
       ),

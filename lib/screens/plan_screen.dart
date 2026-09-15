@@ -5,6 +5,7 @@ import '../data/store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import 'backup_flow.dart';
 
 /// Tab 1 —— 饮食计划：周历（可跨周翻页）+ 餐段筛选 + 当日条目卡片
 class PlanScreen extends StatefulWidget {
@@ -55,27 +56,41 @@ class _PlanScreenState extends State<PlanScreen> {
     return false;
   }
 
-  static final DateTime _firstDate = DateTime.now().subtract(
+  static final DateTime _defaultFirstDate = DateTime.now().subtract(
     const Duration(days: 730),
   );
   static final DateTime _lastDate = DateTime.now().add(
     const Duration(days: 730),
   );
 
+  /// 浏览下界：至少今天-730天；更早的历史记录仍然可以翻到
+  DateTime _firstDateFor(AppStore store) {
+    DateTime? earliest;
+    for (final e in store.diary) {
+      final d = DateTime.tryParse(e.dateKey);
+      if (d != null && (earliest == null || d.isBefore(earliest))) earliest = d;
+    }
+    if (earliest == null || earliest.isAfter(_defaultFirstDate)) {
+      return _defaultFirstDate;
+    }
+    return DateTime(earliest.year, earliest.month, earliest.day);
+  }
+
   /// 所有日期入口共用同一范围，翻周不会翻出日期选择器之外
-  DateTime _clamp(DateTime d) {
+  DateTime _clamp(DateTime d, DateTime firstDate) {
     final ms = d.millisecondsSinceEpoch.clamp(
-      _firstDate.millisecondsSinceEpoch,
+      firstDate.millisecondsSinceEpoch,
       _lastDate.millisecondsSinceEpoch,
     );
     return DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
-  Future<void> _pickDate(DateTime initial) async {
+  Future<void> _pickDate(AppStore store, DateTime initial) async {
+    final firstDate = _firstDateFor(store);
     final d = await showDatePicker(
       context: context,
-      initialDate: _clamp(initial),
-      firstDate: _firstDate,
+      initialDate: _clamp(initial, firstDate),
+      firstDate: firstDate,
       lastDate: _lastDate,
       helpText: '选择日期',
     );
@@ -158,7 +173,11 @@ class _PlanScreenState extends State<PlanScreen> {
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     if (store.loadError != null) {
-      return StoreErrorView(message: store.loadError!, onRetry: store.init);
+      return StoreErrorView(
+        message: store.loadError!,
+        onRetry: store.init,
+        onRestore: () => restoreFromClipboard(context, store),
+      );
     }
     if (!store.loaded) {
       return const Center(
@@ -174,6 +193,7 @@ class _PlanScreenState extends State<PlanScreen> {
         : all.where((e) => e.type == _filter).toList();
     final consumed = store.consumedTotalsFor(key);
     final planned = store.plannedTotalsFor(key);
+    final firstDate = _firstDateFor(store);
 
     return SafeArea(
       top: true,
@@ -186,11 +206,11 @@ class _PlanScreenState extends State<PlanScreen> {
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
               children: [
-                _header(context, now),
+                _header(context, store, now),
                 const SizedBox(height: 20),
                 _dateRow(date, now),
                 const SizedBox(height: 12),
-                _weekRow(date),
+                _weekRow(date, firstDate),
                 const SizedBox(height: 24),
                 Text(
                   isSameDay(date, now)
@@ -247,7 +267,7 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 
-  Widget _header(BuildContext context, DateTime now) {
+  Widget _header(BuildContext context, AppStore store, DateTime now) {
     return Row(
       children: [
         const EmojiBadge('🍱', size: 44, color: Colors.white),
@@ -271,7 +291,7 @@ class _PlanScreenState extends State<PlanScreen> {
         ),
         const Spacer(),
         IconButton(
-          onPressed: () => _pickDate(widget.selectedDate),
+          onPressed: () => _pickDate(store, widget.selectedDate),
           icon: const Icon(
             Icons.calendar_today_outlined,
             size: 22,
@@ -337,12 +357,14 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   /// 周历 + 前后翻周
-  Widget _weekRow(DateTime date) {
+  Widget _weekRow(DateTime date, DateTime firstDate) {
     return Row(
       children: [
         _weekArrow(
           Icons.chevron_left_rounded,
-          () => _onDateChanged(_clamp(date.subtract(const Duration(days: 7)))),
+          () => _onDateChanged(
+            _clamp(date.subtract(const Duration(days: 7)), firstDate),
+          ),
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -351,7 +373,9 @@ class _PlanScreenState extends State<PlanScreen> {
         const SizedBox(width: 4),
         _weekArrow(
           Icons.chevron_right_rounded,
-          () => _onDateChanged(_clamp(date.add(const Duration(days: 7)))),
+          () => _onDateChanged(
+            _clamp(date.add(const Duration(days: 7)), firstDate),
+          ),
         ),
       ],
     );
@@ -717,15 +741,39 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 }
 
-/// 单条饮食记录卡片：展示创建时固化的快照（名称/克数/营养），来源被删也不失真
-class _EntryCard extends StatelessWidget {
+/// 单条饮食记录卡片：展示创建时固化的快照（名称/克数/营养），来源被删也不失真。
+/// 操作期间防双击；失败时提示该次操作自身的错误。
+class _EntryCard extends StatefulWidget {
   final DiaryEntry entry;
 
   const _EntryCard({required this.entry});
 
   @override
+  State<_EntryCard> createState() => _EntryCardState();
+}
+
+class _EntryCardState extends State<_EntryCard> {
+  bool _busy = false;
+
+  Future<void> _run(AppStore store, Future<bool> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final ok = await action();
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(store.lastWriteError ?? '操作失败'),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = context.read<AppStore>();
+    final entry = widget.entry;
     final consumed = entry.status == EntryStatus.consumed;
     final skipped = entry.status == EntryStatus.skipped;
     final dim = consumed || skipped;
@@ -751,12 +799,17 @@ class _EntryCard extends StatelessWidget {
             children: [
               PressableScale(
                 semanticLabel: '切换完成状态',
-                onTap: () => store.setEntryStatus(
-                  entry.id,
-                  entry.status == EntryStatus.planned
-                      ? EntryStatus.consumed
-                      : EntryStatus.planned,
-                ),
+                onTap: _busy
+                    ? null
+                    : () => _run(
+                        store,
+                        () => store.setEntryStatus(
+                          entry.id,
+                          entry.status == EntryStatus.planned
+                              ? EntryStatus.consumed
+                              : EntryStatus.planned,
+                        ),
+                      ),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -843,16 +896,22 @@ class _EntryCard extends StatelessWidget {
                 onSelected: (v) async {
                   switch (v) {
                     case 'toggle':
-                      store.setEntryStatus(
-                        entry.id,
-                        entry.status == EntryStatus.planned
-                            ? EntryStatus.consumed
-                            : EntryStatus.planned,
+                      await _run(
+                        store,
+                        () => store.setEntryStatus(
+                          entry.id,
+                          entry.status == EntryStatus.planned
+                              ? EntryStatus.consumed
+                              : EntryStatus.planned,
+                        ),
                       );
                     case 'skip':
-                      store.setEntryStatus(
-                        entry.id,
-                        skipped ? EntryStatus.planned : EntryStatus.skipped,
+                      await _run(
+                        store,
+                        () => store.setEntryStatus(
+                          entry.id,
+                          skipped ? EntryStatus.planned : EntryStatus.skipped,
+                        ),
                       );
                     case 'edit':
                       final g = await GramDialog.show(
@@ -862,12 +921,10 @@ class _EntryCard extends StatelessWidget {
                         initial: entry.grams,
                       );
                       if (g != null) {
-                        await store.setEntryGrams(entry.id, g);
-                        if (context.mounted && store.lastWriteError != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(store.lastWriteError!)),
-                          );
-                        }
+                        await _run(
+                          store,
+                          () => store.setEntryGrams(entry.id, g),
+                        );
                       }
                     case 'delete':
                       final ok = await confirmDelete(
@@ -875,7 +932,9 @@ class _EntryCard extends StatelessWidget {
                         '删除这条记录',
                         '将从 ${entry.dateKey} 的${entry.type.label}中移除。',
                       );
-                      if (ok) await store.removeEntry(entry.id);
+                      if (ok) {
+                        await _run(store, () => store.removeEntry(entry.id));
+                      }
                   }
                 },
                 itemBuilder: (_) => [

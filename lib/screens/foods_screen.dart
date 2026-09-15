@@ -1,12 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import 'backup_flow.dart';
 import 'food_edit_screen.dart';
 import 'meal_edit_screen.dart';
 
@@ -26,7 +26,11 @@ class _FoodsScreenState extends State<FoodsScreen> {
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     if (store.loadError != null) {
-      return StoreErrorView(message: store.loadError!, onRetry: store.init);
+      return StoreErrorView(
+        message: store.loadError!,
+        onRetry: store.init,
+        onRestore: () => restoreFromClipboard(context, store),
+      );
     }
     if (!store.loaded) {
       return const Center(
@@ -59,7 +63,7 @@ class _FoodsScreenState extends State<FoodsScreen> {
                 ),
                 const Spacer(),
                 IconButton(
-                  onPressed: _backupDialog,
+                  onPressed: () => showBackupSheet(context, store),
                   icon: const Icon(
                     Icons.settings_backup_restore_rounded,
                     size: 24,
@@ -167,103 +171,6 @@ class _FoodsScreenState extends State<FoodsScreen> {
             _seg == 0 ? const FoodEditScreen() : const MealEditScreen(),
       ),
     );
-  }
-
-  /// 备份 / 恢复：数据是用户长期积累的资产，提供纯文本 JSON 的导出与恢复
-  Future<void> _backupDialog() async {
-    final store = context.read<AppStore>();
-    final action = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('备份 / 恢复'),
-        content: const Text(
-          '导出会把全部数据（目标、食材、组合餐、饮食记录）复制为 JSON 文本；'
-          '恢复会用剪贴板里的备份覆盖当前所有数据。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: AppColors.subtext)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'import'),
-            child: const Text('从剪贴板恢复'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'export'),
-            child: const Text(
-              '导出到剪贴板',
-              style: TextStyle(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (action == null || !mounted) return;
-    if (action == 'export') {
-      await Clipboard.setData(ClipboardData(text: store.exportJson()));
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已复制到剪贴板，粘贴到备忘录等处保存即可'),
-          duration: Duration(milliseconds: 1500),
-        ),
-      );
-      return;
-    }
-    // 恢复：先确认再读取剪贴板
-    final ok = await confirmReplace(context);
-    if (!ok || !mounted) return;
-    final data = await Clipboard.getData('text/plain');
-    final text = data?.text ?? '';
-    if (!mounted) return;
-    if (text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('剪贴板里没有内容'),
-          duration: Duration(milliseconds: 1200),
-        ),
-      );
-      return;
-    }
-    final success = await store.importJson(text);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? '已从备份恢复' : '备份内容无法识别，未做任何改动'),
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
-  }
-
-  Future<bool> confirmReplace(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('覆盖当前数据'),
-        content: const Text('当前的目标、食材、组合餐和饮食记录都会被备份内容替换，且无法撤销。确定继续吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消', style: TextStyle(color: AppColors.subtext)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              '覆盖',
-              style: TextStyle(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    return ok ?? false;
   }
 }
 

@@ -7,7 +7,8 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 
-/// 中间 + 号：记录饮食 —— 选日期、餐段，从食材库或组合餐里挑，调份数后加入
+/// 中间 + 号：添加饮食 —— 选日期、餐段，从食材库或组合餐里挑、按克数调整，
+/// 再明确选择「加入计划」或「记为已吃」（意图与事实不靠日期猜测）
 class AddEntrySheet extends StatefulWidget {
   final DateTime initialDate;
   final MealType? initialType;
@@ -27,14 +28,18 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
 
   EntrySource? _selSource;
   String _selId = '';
-  double _selServings = 1;
+  double _selGrams = 100;
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     final q = _query.trim().toLowerCase();
-    final foods = store.foods.where((f) => q.isEmpty || f.name.toLowerCase().contains(q)).toList();
-    final meals = store.meals.where((m) => q.isEmpty || m.name.toLowerCase().contains(q)).toList();
+    final foods = store.foods
+        .where((f) => q.isEmpty || f.name.toLowerCase().contains(q))
+        .toList();
+    final meals = store.meals
+        .where((m) => q.isEmpty || m.name.toLowerCase().contains(q))
+        .toList();
     final insets = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -54,18 +59,27 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFD8DAE0), borderRadius: BorderRadius.circular(2)),
+                  color: const Color(0xFFD8DAE0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
               child: Row(
                 children: [
-                  const Text('记录饮食', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const Text(
+                    '添加饮食',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, size: 24, color: AppColors.subtext),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 24,
+                      color: AppColors.subtext,
+                    ),
                   ),
                 ],
               ),
@@ -98,11 +112,13 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                   }),
                   children: const {
                     0: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('食材', style: TextStyle(fontSize: 13.5))),
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('食材', style: TextStyle(fontSize: 13.5)),
+                    ),
                     1: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('组合餐', style: TextStyle(fontSize: 13.5))),
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('组合餐', style: TextStyle(fontSize: 13.5)),
+                    ),
                   },
                 ),
               ),
@@ -116,24 +132,34 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                   isDense: true,
                   filled: true,
                   fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.subtext),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: AppColors.subtext,
+                  ),
                   hintText: '搜索${_seg == 0 ? '食材' : '组合餐'}',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppColors.subtext),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.subtext,
+                  ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.transparent)),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.accent, width: 1.4)),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                      color: AppColors.accent,
+                      width: 1.4,
+                    ),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: _seg == 0
-                  ? _buildFoodList(foods)
-                  : _buildMealList(meals),
+              child: _seg == 0 ? _buildFoodList(foods) : _buildMealList(meals),
             ),
             if (_selSource != null) _selectionBar(store),
           ],
@@ -148,28 +174,42 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          _circleButton(Icons.chevron_left_rounded, () => setState(() => _date = _date.subtract(const Duration(days: 1)))),
+          _circleButton(
+            Icons.chevron_left_rounded,
+            () =>
+                setState(() => _date = _date.subtract(const Duration(days: 1))),
+          ),
           Expanded(
             child: PressableScale(
               onTap: () => setState(() => _date = DateTime.now()),
               child: Text.rich(
                 TextSpan(
                   text: '${_date.month}月${_date.day}日 ',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                   children: [
                     TextSpan(
-                        text: isToday ? '今天 · ${weekdayLabel(_date)}' : weekdayLabel(_date),
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.subtext)),
+                      text: isToday
+                          ? '今天 · ${weekdayLabel(_date)}'
+                          : weekdayLabel(_date),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.subtext,
+                      ),
+                    ),
                   ],
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
           ),
-          _circleButton(Icons.chevron_right_rounded, () => setState(() => _date = _date.add(const Duration(days: 1)))),
+          _circleButton(
+            Icons.chevron_right_rounded,
+            () => setState(() => _date = _date.add(const Duration(days: 1))),
+          ),
         ],
       ),
     );
@@ -181,7 +221,10 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       child: Container(
         width: 34,
         height: 34,
-        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
         child: Icon(icon, size: 22, color: AppColors.text),
       ),
     );
@@ -196,31 +239,42 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: ShapeDecoration(
           color: selected ? null : Colors.white,
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           gradient: selected
               ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Color.lerp(t.accent, Colors.white, 0.18)!,
-                    t.accent,
-                  ],
+                  colors: [Color.lerp(t.accent, Colors.white, 0.18)!, t.accent],
                 )
               : null,
-          shadows: const [BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2))],
+          shadows: const [
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Text(t.label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? Colors.white : AppColors.text)),
-            Text(t.timeRange,
-                style: TextStyle(
-                    fontSize: 9,
-                    height: 1.4,
-                    color: selected ? const Color(0xCCFFFFFF) : AppColors.subtext)),
+            Text(
+              t.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : AppColors.text,
+              ),
+            ),
+            Text(
+              t.timeRange,
+              style: TextStyle(
+                fontSize: 9,
+                height: 1.4,
+                color: selected ? const Color(0xCCFFFFFF) : AppColors.subtext,
+              ),
+            ),
           ],
         ),
       ),
@@ -230,8 +284,11 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   Widget _buildFoodList(List<Food> foods) {
     if (foods.isEmpty) {
       return const Center(
-          child: Text('没有找到食材，先去「食材库」添加',
-              style: TextStyle(fontSize: 13, color: AppColors.subtext)));
+        child: Text(
+          '没有找到食材，先去「食材库」添加',
+          style: TextStyle(fontSize: 13, color: AppColors.subtext),
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -247,12 +304,13 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
             } else {
               _selSource = EntrySource.food;
               _selId = f.id;
-              _selServings = 1;
+              _selGrams = f.servingGrams;
             }
           }),
           emoji: f.emoji,
           title: f.name,
-          subtitle: '每份 ${fmtNum(f.servingGrams)}g · ${f.kcalPer100.round()} 千卡/100g',
+          subtitle:
+              '一份 ${fmtNum(f.servingGrams)}g · ${f.kcalPer100.round()} 千卡/100g',
         );
       },
     );
@@ -261,8 +319,11 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   Widget _buildMealList(List<MealTemplate> meals) {
     if (meals.isEmpty) {
       return const Center(
-          child: Text('还没有组合餐，先去「食材库 → 组合餐」创建',
-              style: TextStyle(fontSize: 13, color: AppColors.subtext)));
+        child: Text(
+          '还没有组合餐，先去「食材库 → 组合餐」创建',
+          style: TextStyle(fontSize: 13, color: AppColors.subtext),
+        ),
+      );
     }
     final store = context.read<AppStore>();
     return ListView.builder(
@@ -272,6 +333,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         final m = meals[i];
         final selected = _selSource == EntrySource.meal && _selId == m.id;
         final n = store.mealNutrition(m);
+        final grams = store.mealGrams(m);
         return _row(
           selected: selected,
           onTap: () => setState(() {
@@ -280,13 +342,13 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
             } else {
               _selSource = EntrySource.meal;
               _selId = m.id;
-              _selServings = 1;
+              _selGrams = grams;
             }
           }),
           emoji: m.emoji,
           title: m.name,
           subtitle:
-              '${m.items.length} 种食材 · 整餐 ${n.calories.round()} 千卡 / ${fmtNum(store.mealGrams(m))}g',
+              '${m.items.length} 种食材 · 整餐 ${n.calories.round()} 千卡 / ${fmtNum(grams)}g',
         );
       },
     );
@@ -308,7 +370,9 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: selected ? AppColors.accent : Colors.transparent, width: 1.5),
+            color: selected ? AppColors.accent : Colors.transparent,
+            width: 1.5,
+          ),
         ),
         child: Row(
           children: [
@@ -318,14 +382,24 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  Text(subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.subtext)),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.subtext,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -334,19 +408,38 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                     width: 26,
                     height: 26,
                     decoration: const BoxDecoration(
-                        color: AppColors.accent, shape: BoxShape.circle),
-                    child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
                   )
-                : const Icon(Icons.add_circle_outline_rounded,
-                    size: 24, color: Color(0xFFC6C9CF)),
+                : const Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 24,
+                    color: Color(0xFFC6C9CF),
+                  ),
           ],
         ),
       ),
     );
   }
 
+  /// 步进粒度：半份（食材按其一份克数，组合餐按整餐克数）
+  double _stepGrams(AppStore store) {
+    final f = _selSource == EntrySource.food ? store.foodById(_selId) : null;
+    if (f != null) return f.servingGrams / 2;
+    final m = _selSource == EntrySource.meal ? store.mealById(_selId) : null;
+    if (m != null) return store.mealGrams(m) / 2;
+    return 50;
+  }
+
   Widget _selectionBar(AppStore store) {
     final title = store.titleOfRef(_selSource!, _selId);
+    final step = _stepGrams(store);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
@@ -356,31 +449,85 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
           colors: [Color(0xF0FFFFFF), Color(0xDCFFFFFF)],
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: const Border(top: BorderSide(color: Color(0x99FFFFFF), width: 1)),
+        border: const Border(
+          top: BorderSide(color: Color(0x99FFFFFF), width: 1),
+        ),
       ),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  Text('${_type.label} · ${fmtNum(_selServings)} 份',
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.subtext)),
-                ],
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${_type.label} · ${fmtNum(_selGrams)} g',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.subtext,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _stepper(step),
+              ],
             ),
-            _stepper(),
-            const SizedBox(width: 10),
-            FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(84, 42)),
-              onPressed: _add,
-              child: const Text('添加'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 42),
+                      side: const BorderSide(color: AppColors.accent),
+                    ),
+                    onPressed: () => _add(EntryStatus.planned),
+                    icon: const Icon(
+                      Icons.event_note_rounded,
+                      size: 17,
+                      color: AppColors.accent,
+                    ),
+                    label: const Text(
+                      '加入计划',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 42),
+                    ),
+                    onPressed: () => _add(EntryStatus.consumed),
+                    icon: const Icon(Icons.check_rounded, size: 17),
+                    label: const Text(
+                      '记为已吃',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -388,7 +535,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     );
   }
 
-  Widget _stepper() {
+  Widget _stepper(double step) {
     return Container(
       height: 38,
       decoration: BoxDecoration(
@@ -399,18 +546,26 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           PressableScale(
-            onTap: _selServings > 0.5 ? () => setState(() => _selServings -= 0.5) : null,
+            onTap: _selGrams > step
+                ? () => setState(() => _selGrams -= step)
+                : null,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Icon(Icons.remove_rounded,
-                  size: 18,
-                  color: _selServings > 0.5 ? AppColors.text : const Color(0xFFC6C9CF)),
+              child: Icon(
+                Icons.remove_rounded,
+                size: 18,
+                color: _selGrams > step
+                    ? AppColors.text
+                    : const Color(0xFFC6C9CF),
+              ),
             ),
           ),
-          Text(fmtNum(_selServings),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(
+            '${fmtNum(_selGrams)} g',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
           PressableScale(
-            onTap: () => setState(() => _selServings += 0.5),
+            onTap: () => setState(() => _selGrams += step),
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: Icon(Icons.add_rounded, size: 18, color: AppColors.text),
@@ -424,27 +579,33 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   void _clearSelection() {
     _selSource = null;
     _selId = '';
-    _selServings = 1;
+    _selGrams = 100;
   }
 
-  void _add() {
+  void _add(EntryStatus status) {
     final store = context.read<AppStore>();
     final source = _selSource!;
-    store.addEntry(DiaryEntry(
-      id: genId(),
+    final entry = store.buildEntry(
       dateKey: dateKeyOf(_date),
       type: _type,
       source: source,
       refId: _selId,
-      servings: _selServings,
-    ));
-    final name = store.titleOfRef(source, _selId);
+      grams: _selGrams,
+      status: status,
+    );
+    store.addEntry(entry);
+    final name = entry.title;
+    final action = status == EntryStatus.consumed ? '已记录' : '已加入计划';
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text('已添加「$name」到 ${_date.month}月${_date.day}日 · ${_type.label}'),
-        duration: const Duration(milliseconds: 1200),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '$action「$name」到 ${_date.month}月${_date.day}日 · ${_type.label}',
+          ),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
     setState(_clearSelection);
   }
 }

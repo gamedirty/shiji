@@ -6,7 +6,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 
-/// 新建 / 编辑组合餐：一餐 = 多个食材按"份"组合
+/// 新建 / 编辑组合餐：一餐 = 多个食材按克数组合（「份」只是输入时的快捷换算）
 class MealEditScreen extends StatefulWidget {
   final MealTemplate? meal;
 
@@ -18,7 +18,18 @@ class MealEditScreen extends StatefulWidget {
 
 class _MealEditScreenState extends State<MealEditScreen> {
   static const _emojis = [
-    '🍱', '🥗', '🍲', '🥪', '🍚', '🍜', '🥣', '🥑', '🍗', '🐟', '🥦', '🍳',
+    '🍱',
+    '🥗',
+    '🍲',
+    '🥪',
+    '🍚',
+    '🍜',
+    '🥣',
+    '🥑',
+    '🍗',
+    '🐟',
+    '🥦',
+    '🍳',
   ];
 
   late final TextEditingController _name;
@@ -34,9 +45,10 @@ class _MealEditScreenState extends State<MealEditScreen> {
     final m = widget.meal;
     _name = TextEditingController(text: m?.name ?? '');
     _prep = TextEditingController(
-        text: (m == null || m.prepMinutes == 0) ? '' : '${m.prepMinutes}');
+      text: (m == null || m.prepMinutes == 0) ? '' : '${m.prepMinutes}',
+    );
     _emoji = m?.emoji ?? '🍱';
-    _items = m == null ? [] : m.items.map((c) => MealComponent(foodId: c.foodId, servings: c.servings)).toList();
+    _items = m == null ? [] : m.items.map((c) => c.copyWith()).toList();
   }
 
   @override
@@ -49,15 +61,10 @@ class _MealEditScreenState extends State<MealEditScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
-
-    var n = const Nutrition();
-    var grams = 0.0;
-    for (final c in _items) {
-      final f = store.foodById(c.foodId);
-      if (f == null) continue;
-      n += f.forGrams(c.servings * f.servingGrams);
-      grams += c.servings * f.servingGrams;
-    }
+    // 计算统一走 Store，不在 UI 里重复营养公式
+    final draft = MealTemplate(id: '', name: _name.text, items: _items);
+    final n = store.mealNutrition(draft);
+    final grams = store.mealGrams(draft);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -78,7 +85,9 @@ class _MealEditScreenState extends State<MealEditScreen> {
                 children: [
                   const FieldLabel('图标'),
                   const SizedBox(height: 10),
-                  Center(child: EmojiBadge(_emoji, size: 76, color: Colors.white)),
+                  Center(
+                    child: EmojiBadge(_emoji, size: 76, color: Colors.white),
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
@@ -91,46 +100,72 @@ class _MealEditScreenState extends State<MealEditScreen> {
                   const SizedBox(height: 8),
                   RoundedTextField(controller: _name, hint: '组合餐名称，如：鸡胸肉能量碗'),
                   const SizedBox(height: 14),
-                  RoundedTextField(controller: _prep, numeric: true, suffix: '分钟', hint: '准备时长（可选）'),
+                  RoundedTextField(
+                    controller: _prep,
+                    numeric: true,
+                    suffix: '分钟',
+                    hint: '准备时长（可选）',
+                  ),
                   const SizedBox(height: 22),
-                  const FieldLabel('包含食材（按“份”组合，一份 = 食材定义的克数）'),
+                  const FieldLabel('包含食材（按克数组合）'),
                   const SizedBox(height: 8),
                   if (_items.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
                       child: Column(
                         children: _items.asMap().entries.map((entry) {
+                          final i = entry.key;
                           final c = entry.value;
                           final f = store.foodById(c.foodId);
-                          final g = f == null ? 0.0 : c.servings * f.servingGrams;
                           return ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             leading: EmojiBadge(f?.emoji ?? '❓', size: 40),
-                            title: Text(f?.name ?? '（食材已删除）',
-                                style: const TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.w600)),
-                            subtitle: Text('${fmtNum(c.servings)} 份 · ${fmtNum(g)} g',
-                                style: const TextStyle(
-                                    fontSize: 11.5, color: AppColors.subtext)),
+                            title: Text(
+                              f?.name ?? '（食材已删除）',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '每 ${fmtNum(c.grams)} g'
+                              '${f == null ? '' : ' · ${f.forGrams(c.grams).calories.round()} 千卡'}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.subtext,
+                              ),
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.tune_rounded,
-                                      size: 20, color: AppColors.accent),
-                                  tooltip: '调整份数',
-                                  onPressed: () => _adjustServings(store, c),
+                                  icon: const Icon(
+                                    Icons.tune_rounded,
+                                    size: 20,
+                                    color: AppColors.accent,
+                                  ),
+                                  tooltip: '调整克数',
+                                  onPressed: () => _adjustGrams(store, i),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.close_rounded,
-                                      size: 20, color: AppColors.subtext),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 20,
+                                    color: AppColors.subtext,
+                                  ),
                                   tooltip: '移除',
-                                  onPressed: () => setState(() => _items.remove(c)),
+                                  onPressed: () =>
+                                      setState(() => _items.removeAt(i)),
                                 ),
                               ],
                             ),
@@ -151,13 +186,20 @@ class _MealEditScreenState extends State<MealEditScreen> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_rounded, size: 20, color: AppColors.accent),
+                          Icon(
+                            Icons.add_rounded,
+                            size: 20,
+                            color: AppColors.accent,
+                          ),
                           SizedBox(width: 6),
-                          Text('添加食材',
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.accent)),
+                          Text(
+                            '添加食材',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -167,7 +209,9 @@ class _MealEditScreenState extends State<MealEditScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: ShapeDecoration(
                       color: Colors.white,
-                      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,18 +220,40 @@ class _MealEditScreenState extends State<MealEditScreen> {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const Text('整餐合计', style: TextStyle(fontSize: 12, color: AppColors.subtext)),
+                            const Text(
+                              '整餐合计',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.subtext,
+                              ),
+                            ),
                             const Spacer(),
-                            Text('${n.calories.round()}',
-                                style: const TextStyle(
-                                    fontSize: 26, fontWeight: FontWeight.w800, height: 1.1)),
+                            Text(
+                              '${n.calories.round()}',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                              ),
+                            ),
                             const SizedBox(width: 4),
-                            const Text('千卡', style: TextStyle(fontSize: 12, color: AppColors.subtext)),
+                            const Text(
+                              '千卡',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.subtext,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text('总重约 ${fmtNum(grams)} g · ${_items.length} 种食材',
-                            style: const TextStyle(fontSize: 11.5, color: AppColors.subtext)),
+                        Text(
+                          '总重约 ${fmtNum(grams)} g · ${_items.length} 种食材',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.subtext,
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         MacroRow(n: n),
                       ],
@@ -217,7 +283,9 @@ class _MealEditScreenState extends State<MealEditScreen> {
           color: selected ? AppColors.accentSoft : Colors.white,
           shape: BoxShape.circle,
           border: Border.all(
-              color: selected ? AppColors.accent : Colors.transparent, width: 1.5),
+            color: selected ? AppColors.accent : Colors.transparent,
+            width: 1.5,
+          ),
         ),
         alignment: Alignment.center,
         child: Text(e, style: const TextStyle(fontSize: 22)),
@@ -225,15 +293,18 @@ class _MealEditScreenState extends State<MealEditScreen> {
     );
   }
 
-  Future<void> _adjustServings(AppStore store, MealComponent c) async {
+  Future<void> _adjustGrams(AppStore store, int index) async {
+    final c = _items[index];
     final f = store.foodById(c.foodId);
-    final q = await QuantityDialog.show(
+    final serving = f?.servingGrams ?? 100;
+    final q = await GramDialog.show(
       context,
-      title: '「${f?.name ?? '食材'}」的份数',
-      subtitle: f == null ? null : '一份 = ${fmtNum(f.servingGrams)} g',
-      initial: c.servings,
+      title: '「${f?.name ?? '食材'}」的克数',
+      subtitle: f == null ? null : '一份 = ${fmtNum(serving)} g',
+      initial: c.grams,
+      quickGrams: [serving * 0.5, serving, serving * 1.5, serving * 2],
     );
-    if (q != null) setState(() => c.servings = q);
+    if (q != null) setState(() => _items[index] = c.copyWith(grams: q));
   }
 
   Future<void> _pickFood(AppStore store) async {
@@ -245,54 +316,88 @@ class _MealEditScreenState extends State<MealEditScreen> {
       builder: (_) => const _FoodPickerSheet(),
     );
     if (food == null || !mounted) return;
-    final servings = await QuantityDialog.show(
+    final grams = await GramDialog.show(
       context,
-      title: '「${food.name}」的份数',
+      title: '「${food.name}」的克数',
       subtitle: '一份 = ${fmtNum(food.servingGrams)} g',
-      initial: 1,
+      initial: food.servingGrams,
+      quickGrams: [
+        food.servingGrams * 0.5,
+        food.servingGrams,
+        food.servingGrams * 1.5,
+        food.servingGrams * 2,
+      ],
     );
-    if (servings == null) return;
-    setState(() => _items.add(MealComponent(foodId: food.id, servings: servings)));
+    if (grams == null) return;
+    setState(() => _items.add(MealComponent(foodId: food.id, grams: grams)));
   }
 
   Widget _deleteButton(BuildContext context) {
     return Container(
       decoration: ShapeDecoration(
-          color: Colors.white,
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18))),
+        color: Colors.white,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
       child: ListTile(
-        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
         title: const Center(
-          child: Text('删除组合餐',
-              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
+          child: Text(
+            '删除组合餐',
+            style: TextStyle(
+              color: AppColors.danger,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         onTap: () async {
           final meal = widget.meal!;
           final ok = await confirmDelete(
-              context, '删除组合餐', '「${meal.name}」以及它在饮食记录里的所有条目都会被移除，确定删除吗？');
+            context,
+            '删除组合餐',
+            '「${meal.name}」会被移除；已有的饮食记录不受影响。',
+          );
           if (!ok || !context.mounted) return;
-          context.read<AppStore>().removeMeal(meal.id);
-          Navigator.of(context).pop();
+          await context.read<AppStore>().removeMeal(meal.id);
+          if (context.mounted) Navigator.of(context).pop();
         },
       ),
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('给这餐起个名字吧'), duration: Duration(milliseconds: 900)));
+        const SnackBar(
+          content: Text('给这餐起个名字吧'),
+          duration: Duration(milliseconds: 900),
+        ),
+      );
       return;
     }
-    context.read<AppStore>().upsertMeal(MealTemplate(
-          id: widget.meal?.id ?? genId(),
-          name: name,
-          emoji: _emoji,
-          prepMinutes: int.tryParse(_prep.text.trim()) ?? 0,
-          items: _items,
-        ));
-    Navigator.of(context).pop();
+    if (_items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('至少添加一种食材'),
+          duration: Duration(milliseconds: 900),
+        ),
+      );
+      return;
+    }
+    await context.read<AppStore>().upsertMeal(
+      MealTemplate(
+        id: widget.meal?.id ?? genId(),
+        name: name,
+        emoji: _emoji,
+        prepMinutes: int.tryParse(_prep.text.trim()) ?? 0,
+        items: List.of(_items),
+      ),
+    );
+    if (mounted) Navigator.of(context).pop();
   }
 }
 
@@ -311,11 +416,14 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     final q = _query.trim().toLowerCase();
-    final foods =
-        store.foods.where((f) => q.isEmpty || f.name.toLowerCase().contains(q)).toList();
+    final foods = store.foods
+        .where((f) => q.isEmpty || f.name.toLowerCase().contains(q))
+        .toList();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         height: MediaQuery.of(context).size.height * 0.72,
         decoration: const BoxDecoration(
@@ -329,17 +437,26 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: const Color(0xFFD8DAE0), borderRadius: BorderRadius.circular(2)),
+                color: const Color(0xFFD8DAE0),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  const Text('选择食材', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const Text(
+                    '选择食材',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, size: 22, color: AppColors.subtext),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 22,
+                      color: AppColors.subtext,
+                    ),
                   ),
                 ],
               ),
@@ -352,16 +469,28 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
                   isDense: true,
                   filled: true,
                   fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.subtext),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: AppColors.subtext,
+                  ),
                   hintText: '搜索食材',
-                  hintStyle: const TextStyle(fontSize: 14, color: AppColors.subtext),
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.subtext,
+                  ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.transparent)),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.accent, width: 1.4)),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                      color: AppColors.accent,
+                      width: 1.4,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -375,7 +504,10 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
                     onTap: () => Navigator.of(context).pop(f),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -388,17 +520,28 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(f.name,
-                                    style: const TextStyle(
-                                        fontSize: 14, fontWeight: FontWeight.w700)),
-                                Text('每份 ${fmtNum(f.servingGrams)}g · ${f.kcalPer100.round()} 千卡/100g',
-                                    style: const TextStyle(
-                                        fontSize: 11.5, color: AppColors.subtext)),
+                                Text(
+                                  f.name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '每份 ${fmtNum(f.servingGrams)}g · ${f.kcalPer100.round()} 千卡/100g',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.subtext,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.add_circle_rounded,
-                              size: 24, color: AppColors.accent),
+                          const Icon(
+                            Icons.add_circle_rounded,
+                            size: 24,
+                            color: AppColors.accent,
+                          ),
                         ],
                       ),
                     ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'models.dart';
+
 /// iOS 风格配色
 class AppColors {
   static const bg = Color(0xFFF2F3F7);
@@ -18,6 +20,18 @@ class AppColors {
   static const danger = Color(0xFFFF3B30);
 }
 
+/// 餐段主题色（UI 层职责，不进入领域模型）
+extension MealTypeColorX on MealType {
+  Color get accent => switch (this) {
+    MealType.breakfast => const Color(0xFFFF9500), // 晨光橙
+    MealType.lunch => const Color(0xFF30B15C), // 活力绿
+    MealType.dinner => const Color(0xFF5E5CE6), // 静夜紫
+    MealType.snack => const Color(0xFFFF2D78), // 元气粉
+  };
+
+  Color get accentSoft => accent.withValues(alpha: 0.12);
+}
+
 ThemeData buildTheme() {
   final base = ThemeData(
     useMaterial3: true,
@@ -29,14 +43,15 @@ ThemeData buildTheme() {
       'Helvetica Neue',
       'Segoe UI',
     ],
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.accent,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.accent,
-      secondary: AppColors.accent,
-      surface: Colors.white,
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: AppColors.accent,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.accent,
+          secondary: AppColors.accent,
+          surface: Colors.white,
+        ),
     scaffoldBackgroundColor: AppColors.bg,
   );
   return base.copyWith(
@@ -52,7 +67,10 @@ ThemeData buildTheme() {
       elevation: 0,
       centerTitle: true,
     ),
-    dividerTheme: const DividerThemeData(color: AppColors.divider, thickness: 1),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.divider,
+      thickness: 1,
+    ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xE6222226),
@@ -63,9 +81,15 @@ ThemeData buildTheme() {
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       titleTextStyle: const TextStyle(
-          fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.text),
-      contentTextStyle:
-          const TextStyle(fontSize: 14, height: 1.45, color: AppColors.text),
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      ),
+      contentTextStyle: const TextStyle(
+        fontSize: 14,
+        height: 1.45,
+        color: AppColors.text,
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(

@@ -25,7 +25,8 @@ class _HomeShellState extends State<HomeShell> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => AddEntrySheet(initialDate: _selectedDate, initialType: type),
+      builder: (_) =>
+          AddEntrySheet(initialDate: _selectedDate, initialType: type),
     );
   }
 
@@ -61,7 +62,12 @@ class GlassNavBar extends StatelessWidget {
   final ValueChanged<int> onTab;
   final VoidCallback onAdd;
 
-  const GlassNavBar({super.key, required this.index, required this.onTab, required this.onAdd});
+  const GlassNavBar({
+    super.key,
+    required this.index,
+    required this.onTab,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -87,20 +93,30 @@ class GlassNavBar extends StatelessWidget {
                         child: Container(
                           width: 60,
                           height: 44,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFF35C287), Color(0xFF0E9F6E)],
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFF35C287), Color(0xFF0E9F6E)],
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0x66FFFFFF),
+                              width: 1,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x59129B6C),
+                                blurRadius: 14,
+                                offset: Offset(0, 5),
+                              ),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0x66FFFFFF), width: 1),
-                          boxShadow: const [
-                            BoxShadow(
-                                color: Color(0x59129B6C), blurRadius: 14, offset: Offset(0, 5)),
-                          ],
-                        ),
-                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
                         ),
                       ),
                     ),
@@ -130,11 +146,14 @@ class GlassNavBar extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 24),
             const SizedBox(height: 3),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                    color: color)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),

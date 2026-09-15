@@ -6,7 +6,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 
-/// Tab 1 —— 饮食计划：周历 + 餐段筛选 + 当日条目卡片
+/// Tab 1 —— 饮食计划：周历（可跨周翻页）+ 餐段筛选 + 当日条目卡片
 class PlanScreen extends StatefulWidget {
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateChanged;
@@ -38,8 +38,11 @@ class _PlanScreenState extends State<PlanScreen> {
   void _onDateChanged(DateTime d) {
     widget.onDateChanged(d);
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(0,
-          duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
@@ -52,18 +55,38 @@ class _PlanScreenState extends State<PlanScreen> {
     return false;
   }
 
+  Future<void> _pickDate(DateTime initial) async {
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now.subtract(const Duration(days: 730)),
+      lastDate: now.add(const Duration(days: 730)),
+      helpText: '选择日期',
+    );
+    if (d != null) _onDateChanged(d);
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
+    if (store.loadError != null) {
+      return StoreErrorView(message: store.loadError!, onRetry: store.init);
+    }
     if (!store.loaded) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.accent));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.accent),
+      );
     }
     final now = DateTime.now();
     final date = widget.selectedDate;
     final key = dateKeyOf(date);
     final all = store.entriesFor(key);
-    final list = _filter == null ? all : all.where((e) => e.type == _filter).toList();
-    final totals = store.totalsFor(key);
+    final list = _filter == null
+        ? all
+        : all.where((e) => e.type == _filter).toList();
+    final consumed = store.consumedTotalsFor(key);
+    final planned = store.plannedTotalsFor(key);
 
     return SafeArea(
       top: true,
@@ -80,24 +103,32 @@ class _PlanScreenState extends State<PlanScreen> {
                 const SizedBox(height: 20),
                 _dateRow(date, now),
                 const SizedBox(height: 12),
-                WeekStrip(selected: date, onTap: _onDateChanged),
+                _weekRow(date),
                 const SizedBox(height: 24),
                 Text(
-                  isSameDay(date, now) ? '今天的安排' : '${date.month}月${date.day}日 的安排',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2),
+                  isSameDay(date, now)
+                      ? '今天的安排'
+                      : '${date.month}月${date.day}日 的安排',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                _summaryCard(store, totals),
+                _summaryCard(store, consumed, planned),
                 const SizedBox(height: 16),
                 _chips(),
                 const SizedBox(height: 12),
                 if (list.isEmpty)
                   _empty(context)
                 else
-                  ...list.map((e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _EntryCard(entry: e),
-                      )),
+                  ...list.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _EntryCard(entry: e),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -137,15 +168,29 @@ class _PlanScreenState extends State<PlanScreen> {
         const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('食记', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.15)),
-            Text('健身饮食计划与记录', style: TextStyle(fontSize: 11, color: AppColors.subtext)),
+            Text(
+              '食记',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+              ),
+            ),
+            Text(
+              '健身饮食计划与记录',
+              style: TextStyle(fontSize: 11, color: AppColors.subtext),
+            ),
           ],
         ),
         const Spacer(),
         IconButton(
-          onPressed: () => _onDateChanged(now),
-          icon: const Icon(Icons.calendar_today_outlined, size: 22, color: AppColors.text),
-          tooltip: '回到今天',
+          onPressed: () => _pickDate(widget.selectedDate),
+          icon: const Icon(
+            Icons.calendar_today_outlined,
+            size: 22,
+            color: AppColors.text,
+          ),
+          tooltip: '选择日期',
         ),
       ],
     );
@@ -156,14 +201,19 @@ class _PlanScreenState extends State<PlanScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('${date.month}月${date.day}日',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        Text(
+          '${date.month}月${date.day}日',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(width: 8),
-        Text(weekdayLabel(date),
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: isToday ? AppColors.text : AppColors.subtext)),
+        Text(
+          weekdayLabel(date),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: isToday ? AppColors.text : AppColors.subtext,
+          ),
+        ),
         const Spacer(),
         // 固定行高 + 紧凑按钮，保证按钮出现/消失时不改变行高（避免列表抖动）
         SizedBox(
@@ -176,23 +226,62 @@ class _PlanScreenState extends State<PlanScreen> {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
             ),
-            child: Text('今天',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isToday ? Colors.transparent : AppColors.accent)),
+            child: Text(
+              '今天',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isToday ? Colors.transparent : AppColors.accent,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _summaryCard(AppStore store, Nutrition totals) {
-    final target = store.kcalTarget;
-    final progress = target > 0 ? totals.calories / target : 0.0;
-    final remaining = target - totals.calories;
+  /// 周历 + 前后翻周
+  Widget _weekRow(DateTime date) {
+    return Row(
+      children: [
+        _weekArrow(
+          Icons.chevron_left_rounded,
+          () => _onDateChanged(date.subtract(const Duration(days: 7))),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: WeekStrip(selected: date, onTap: _onDateChanged),
+        ),
+        const SizedBox(width: 4),
+        _weekArrow(
+          Icons.chevron_right_rounded,
+          () => _onDateChanged(date.add(const Duration(days: 7))),
+        ),
+      ],
+    );
+  }
+
+  Widget _weekArrow(IconData icon, VoidCallback onTap) {
+    return PressableScale(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 20, color: AppColors.text),
+      ),
+    );
+  }
+
+  Widget _summaryCard(AppStore store, Nutrition consumed, Nutrition planned) {
+    final target = store.targets;
+    final progress = target.kcal > 0 ? consumed.calories / target.kcal : 0.0;
+    final remaining = target.kcal - consumed.calories;
     final sub = remaining >= 0
-        ? '今日还可吃 ${remaining.round()} 千卡'
+        ? '还可吃 ${remaining.round()} 千卡'
         : '已超出 ${(-remaining).round()} 千卡';
 
     return PressableScale(
@@ -205,9 +294,15 @@ class _PlanScreenState extends State<PlanScreen> {
             end: Alignment.bottomRight,
             colors: [Color(0xFF0C8A5F), Color(0xFF26B26D)],
           ),
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(26)),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(26),
+          ),
           shadows: const [
-            BoxShadow(color: Color(0x3D26B26D), blurRadius: 20, offset: Offset(0, 8)),
+            BoxShadow(
+              color: Color(0x3D26B26D),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
           ],
         ),
         child: Column(
@@ -217,40 +312,55 @@ class _PlanScreenState extends State<PlanScreen> {
               children: [
                 CalorieRing(
                   progress: progress,
-                  valueText: totals.calories.round().toString(),
-                  unitText: '千卡',
+                  valueText: consumed.calories.round().toString(),
+                  unitText: '已摄入',
                 ),
                 const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('全天合计',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xCCFFFFFF))),
-                      const SizedBox(height: 2),
-                      Text('每日目标 ${fmtNum(store.kcalTarget)} 千卡',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0x99FFFFFF))),
+                      Text(
+                        '每日目标 ${fmtNum(target.kcal)} 千卡',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0x99FFFFFF),
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text(sub,
+                      Text(
+                        sub,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (planned.calories > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '还有计划 ${planned.calories.round()} 千卡未吃',
                           style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
+                            fontSize: 11.5,
+                            color: Color(0xCCFFFFFF),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
-                      Text('点按可调整目标',
-                          style: const TextStyle(
-                              fontSize: 10, color: Color(0x80FFFFFF))),
+                      Text(
+                        '点按可调整目标',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0x80FFFFFF),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            MacroRow(n: totals, light: true),
+            MacroProgressRow(n: consumed, targets: target, light: true),
           ],
         ),
       ),
@@ -258,33 +368,103 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Future<void> _editTarget(AppStore store) async {
-    final c = TextEditingController(text: store.kcalTarget.round().toString());
-    final v = await showDialog<double>(
+    final t = store.targets;
+    final kcal = TextEditingController(text: t.kcal.round().toString());
+    final protein = TextEditingController(text: t.protein.round().toString());
+    final carbs = TextEditingController(text: t.carbs.round().toString());
+    final fat = TextEditingController(text: t.fat.round().toString());
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('每日热量目标'),
-        content: TextField(
-          controller: c,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          inputFormatters: [NumericTextFormatter()],
-          decoration: const InputDecoration(
-              suffixText: '千卡', suffixStyle: TextStyle(color: AppColors.subtext)),
+        title: const Text('每日目标'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FieldLabel('热量（千卡）'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: kcal,
+              keyboardType: TextInputType.number,
+              inputFormatters: [NumericTextFormatter()],
+              decoration: const InputDecoration(
+                suffixText: '千卡',
+                suffixStyle: TextStyle(color: AppColors.subtext),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const FieldLabel('三大营养素（克）'),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: protein,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [NumericTextFormatter()],
+                    decoration: const InputDecoration(
+                      hintText: '蛋白',
+                      suffixText: 'g',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: carbs,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [NumericTextFormatter()],
+                    decoration: const InputDecoration(
+                      hintText: '碳水',
+                      suffixText: 'g',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: fat,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [NumericTextFormatter()],
+                    decoration: const InputDecoration(
+                      hintText: '脂肪',
+                      suffixText: 'g',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消', style: TextStyle(color: AppColors.subtext))),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消', style: TextStyle(color: AppColors.subtext)),
+          ),
           TextButton(
-              onPressed: () =>
-                  Navigator.pop(ctx, double.tryParse(c.text.trim())),
-              child: const Text('保存',
-                  style: TextStyle(
-                      color: AppColors.accent, fontWeight: FontWeight.w700))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              '保存',
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
-    if (v != null && v >= 100) store.setKcalTarget(v);
+    if (ok != true) return;
+    final kcalV = double.tryParse(kcal.text.trim()) ?? 0;
+    if (kcalV < 100) return;
+    await store.setTargets(
+      NutritionTargets(
+        kcal: kcalV,
+        protein: double.tryParse(protein.text.trim()) ?? 0,
+        carbs: double.tryParse(carbs.text.trim()) ?? 0,
+        fat: double.tryParse(fat.text.trim()) ?? 0,
+      ),
+    );
   }
 
   Widget _chips() {
@@ -296,10 +476,12 @@ class _PlanScreenState extends State<PlanScreen> {
         children: [
           _chip(null),
           const SizedBox(width: 8),
-          ...MealType.values.map((t) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _chip(t),
-              )),
+          ...MealType.values.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _chip(t),
+            ),
+          ),
         ],
       ),
     );
@@ -315,27 +497,31 @@ class _PlanScreenState extends State<PlanScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: ShapeDecoration(
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           color: selected ? null : Colors.white,
           gradient: selected
               ? LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Color.lerp(accent, Colors.white, 0.18)!,
-                    accent,
-                  ],
+                  colors: [Color.lerp(accent, Colors.white, 0.18)!, accent],
                 )
               : null,
           shadows: selected
               ? [
                   BoxShadow(
-                      color: accent.withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5)),
+                    color: accent.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
                 ]
               : const [
-                  BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2)),
+                  BoxShadow(
+                    color: Color(0x06000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
                 ],
         ),
         child: Column(
@@ -350,24 +536,31 @@ class _PlanScreenState extends State<PlanScreen> {
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: selected ? Colors.white : accent),
+                      shape: BoxShape.circle,
+                      color: selected ? Colors.white : accent,
+                    ),
                   ),
                   const SizedBox(width: 6),
                 ],
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? Colors.white : AppColors.text)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : AppColors.text,
+                  ),
+                ),
               ],
             ),
             if (range.isNotEmpty)
-              Text(range,
-                  style: TextStyle(
-                      fontSize: 10,
-                      height: 1.3,
-                      color: selected ? const Color(0xCCFFFFFF) : AppColors.subtext)),
+              Text(
+                range,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1.3,
+                  color: selected ? const Color(0xCCFFFFFF) : AppColors.subtext,
+                ),
+              ),
           ],
         ),
       ),
@@ -397,7 +590,7 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 }
 
-/// 单条饮食记录卡片
+/// 单条饮食记录卡片：展示创建时固化的快照（名称/克数/营养），来源被删也不失真
 class _EntryCard extends StatelessWidget {
   final DiaryEntry entry;
 
@@ -405,11 +598,21 @@ class _EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
-    final title = store.titleOf(entry);
-    final subtitle = store.subtitleOf(entry);
-    final n = store.nutritionOf(entry);
-    final done = entry.done;
+    final store = context.read<AppStore>();
+    final consumed = entry.status == EntryStatus.consumed;
+    final skipped = entry.status == EntryStatus.skipped;
+    final dim = consumed || skipped;
+    final n = entry.nutrition;
+
+    final subtitleParts = <String>[
+      switch (entry.status) {
+        EntryStatus.planned => '计划',
+        EntryStatus.consumed => '已吃',
+        EntryStatus.skipped => '已跳过',
+      },
+      '${fmtNum(entry.grams)} g',
+      if (entry.items.length > 1) entry.items.map((it) => it.name).join(' · '),
+    ];
 
     return IosCard(
       padding: const EdgeInsets.fromLTRB(14, 14, 6, 12),
@@ -420,25 +623,41 @@ class _EntryCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PressableScale(
-                onTap: () => store.setDone(entry.id, !done),
+                onTap: () => store.setEntryStatus(
+                  entry.id,
+                  consumed ? EntryStatus.planned : EntryStatus.consumed,
+                ),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Opacity(
-                      opacity: done ? 0.45 : 1,
-                      child: EmojiBadge(store.emojiOf(entry),
-                          size: 54, color: entry.type.accentSoft),
+                      opacity: dim ? 0.45 : 1,
+                      child: EmojiBadge(
+                        entry.emoji,
+                        size: 54,
+                        color: entry.type.accentSoft,
+                      ),
                     ),
-                    if (done)
+                    if (dim)
                       Positioned(
                         right: -4,
                         top: -4,
                         child: Container(
                           width: 20,
                           height: 20,
-                          decoration: const BoxDecoration(
-                              color: AppColors.carbs, shape: BoxShape.circle),
-                          child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                          decoration: BoxDecoration(
+                            color: consumed
+                                ? AppColors.carbs
+                                : AppColors.subtext,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            consumed
+                                ? Icons.check_rounded
+                                : Icons.remove_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                   ],
@@ -449,85 +668,162 @@ class _EntryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
+                    Text(
+                      entry.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        decoration: consumed
+                            ? TextDecoration.lineThrough
+                            : null,
+                        decorationColor: AppColors.subtext,
+                        color: dim ? AppColors.subtext : AppColors.text,
+                      ),
+                    ),
+                    if (entry.title.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitleParts.join(' · '),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                            decoration: done ? TextDecoration.lineThrough : null,
-                            decorationColor: AppColors.subtext,
-                            color: done ? AppColors.subtext : AppColors.text)),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(subtitle,
-                          style: const TextStyle(
-                              fontSize: 12, height: 1.4, color: AppColors.subtext)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppColors.subtext,
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
               const SizedBox(width: 4),
               PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz_rounded, color: AppColors.subtext, size: 22),
-            shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(16)),
-            position: PopupMenuPosition.under,
-            onSelected: (v) async {
-              switch (v) {
-                case 'done':
-                  store.setDone(entry.id, !done);
-                case 'edit':
-                  final q = await QuantityDialog.show(
-                    context,
-                    title: '调整「${store.titleOf(entry)}」',
-                    subtitle: '一份的克数由食材/组合餐定义',
-                    initial: entry.servings,
-                  );
-                  if (q != null) store.setServings(entry.id, q);
-                case 'delete':
-                  final ok = await confirmDelete(context, '删除这条记录', '将从 ${entry.dateKey} 的${entry.type.label}中移除。');
-                  if (ok) store.removeEntry(entry.id);
-              }
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                  value: 'done',
-                  child: Row(children: [
-                    Icon(done ? Icons.undo_rounded : Icons.check_circle_outline_rounded,
-                        size: 19, color: AppColors.carbs),
-                    const SizedBox(width: 10),
-                    Text(done ? '标记为未吃' : '标记为已吃', style: const TextStyle(fontSize: 14)),
-                  ])),
-              PopupMenuItem(
-                  value: 'edit',
-                  child: Row(children: [
-                    Icon(Icons.tune_rounded, size: 19, color: AppColors.accent),
-                    const SizedBox(width: 10),
-                    Text('调整份量', style: const TextStyle(fontSize: 14)),
-                  ])),
-              PopupMenuItem(
-                  value: 'delete',
-                  child: Row(children: [
-                    Icon(Icons.delete_outline_rounded, size: 19, color: AppColors.danger),
-                    const SizedBox(width: 10),
-                    Text('删除', style: const TextStyle(fontSize: 14, color: AppColors.danger)),
-                  ])),
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: AppColors.subtext,
+                  size: 22,
+                ),
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                position: PopupMenuPosition.under,
+                onSelected: (v) async {
+                  switch (v) {
+                    case 'toggle':
+                      store.setEntryStatus(
+                        entry.id,
+                        consumed ? EntryStatus.planned : EntryStatus.consumed,
+                      );
+                    case 'skip':
+                      store.setEntryStatus(
+                        entry.id,
+                        skipped ? EntryStatus.planned : EntryStatus.skipped,
+                      );
+                    case 'edit':
+                      final g = await GramDialog.show(
+                        context,
+                        title: '调整「${entry.title}」的克数',
+                        subtitle: '营养按创建时的食材定义换算',
+                        initial: entry.grams,
+                      );
+                      if (g != null) store.setEntryGrams(entry.id, g);
+                    case 'delete':
+                      final ok = await confirmDelete(
+                        context,
+                        '删除这条记录',
+                        '将从 ${entry.dateKey} 的${entry.type.label}中移除。',
+                      );
+                      if (ok) store.removeEntry(entry.id);
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'toggle',
+                    child: Row(
+                      children: [
+                        Icon(
+                          consumed
+                              ? Icons.undo_rounded
+                              : Icons.check_circle_outline_rounded,
+                          size: 19,
+                          color: AppColors.carbs,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          consumed ? '标记为未吃' : '标记为已吃',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'skip',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.remove_circle_outline_rounded,
+                          size: 19,
+                          color: AppColors.subtext,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          skipped ? '取消跳过' : '跳过这一项',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 19,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 10),
+                        Text('调整克数', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 19,
+                          color: AppColors.danger,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '删除',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.danger,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 66, right: 8),
+            child: MacroRow(n: n),
+          ),
         ],
-      ),
-      const SizedBox(height: 10),
-      Padding(
-        padding: const EdgeInsets.only(left: 66, right: 8),
-        child: MacroRow(n: n),
-      ),
-    ],
       ),
     );
   }
 }
-
 
 /// 吸顶日期栏：滚动越过日期区后从顶部淡入的毛玻璃小条
 class _StickyDateBar extends StatelessWidget {
@@ -553,26 +849,44 @@ class _StickyDateBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Text('${date.month}月${date.day}日',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                Text(
+                  '${date.month}月${date.day}日',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Text(weekdayLabel(date),
-                    style: const TextStyle(fontSize: 13, color: AppColors.subtext)),
+                Text(
+                  weekdayLabel(date),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.subtext,
+                  ),
+                ),
                 const Spacer(),
                 if (showTodayButton)
                   PressableScale(
                     onTap: onToday,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: ShapeDecoration(
                         color: AppColors.accentSoft,
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('回到今天',
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.accent)),
+                      child: const Text(
+                        '回到今天',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accent,
+                        ),
+                      ),
                     ),
                   ),
               ],

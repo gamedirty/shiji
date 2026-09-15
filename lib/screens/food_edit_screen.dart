@@ -19,8 +19,30 @@ class FoodEditScreen extends StatefulWidget {
 
 class _FoodEditScreenState extends State<FoodEditScreen> {
   static const _emojis = [
-    '🥗', '🍗', '🥚', '🥩', '🐟', '🦐', '🥦', '🥑', '🍚', '🍜', '🍞', '🥛',
-    '🍶', '🧀', '🥜', '🍌', '🍎', '🫐', '🍠', '🌽', '🍫', '💪', '🍳', '🍱',
+    '🥗',
+    '🍗',
+    '🥚',
+    '🥩',
+    '🐟',
+    '🦐',
+    '🥦',
+    '🥑',
+    '🍚',
+    '🍜',
+    '🍞',
+    '🥛',
+    '🍶',
+    '🧀',
+    '🥜',
+    '🍌',
+    '🍎',
+    '🫐',
+    '🍠',
+    '🌽',
+    '🍫',
+    '💪',
+    '🍳',
+    '🍱',
   ];
 
   late final TextEditingController _name;
@@ -88,15 +110,15 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                 children: [
                   const FieldLabel('图标'),
                   const SizedBox(height: 10),
-                  Center(child: EmojiBadge(_emoji, size: 76, color: Colors.white)),
+                  Center(
+                    child: EmojiBadge(_emoji, size: 76, color: Colors.white),
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
-                    children: _emojis
-                        .map((e) => _emojiChip(e))
-                        .toList(),
+                    children: _emojis.map((e) => _emojiChip(e)).toList(),
                   ),
                   const SizedBox(height: 22),
                   const FieldLabel('名称'),
@@ -106,10 +128,11 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                   const FieldLabel('每份重量（克）'),
                   const SizedBox(height: 8),
                   RoundedTextField(
-                      controller: _grams,
-                      numeric: true,
-                      suffix: 'g',
-                      hint: '标准 100g；整包商品可设为一份，如 360'),
+                    controller: _grams,
+                    numeric: true,
+                    suffix: 'g',
+                    hint: '标准 100g；整包商品可设为一份，如 360',
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -119,18 +142,31 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                       return PressableScale(
                         onTap: () => setState(() => _grams.text = fmtNum(g)),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
                           decoration: BoxDecoration(
-                            color: selected ? AppColors.accentSoft : Colors.white,
+                            color: selected
+                                ? AppColors.accentSoft
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: selected ? AppColors.accent : AppColors.divider),
+                              color: selected
+                                  ? AppColors.accent
+                                  : AppColors.divider,
+                            ),
                           ),
-                          child: Text(label,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: selected ? AppColors.accent : AppColors.subtext)),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AppColors.accent
+                                  : AppColors.subtext,
+                            ),
+                          ),
                         ),
                       );
                     }).toList(),
@@ -141,16 +177,31 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                   Row(
                     children: [
                       Expanded(
-                          child: RoundedTextField(
-                              controller: _protein, numeric: true, suffix: 'g', hint: '蛋白质')),
+                        child: RoundedTextField(
+                          controller: _protein,
+                          numeric: true,
+                          suffix: 'g',
+                          hint: '蛋白质',
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                          child: RoundedTextField(
-                              controller: _carbs, numeric: true, suffix: 'g', hint: '碳水')),
+                        child: RoundedTextField(
+                          controller: _carbs,
+                          numeric: true,
+                          suffix: 'g',
+                          hint: '碳水',
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                          child: RoundedTextField(
-                              controller: _fat, numeric: true, suffix: 'g', hint: '脂肪')),
+                        child: RoundedTextField(
+                          controller: _fat,
+                          numeric: true,
+                          suffix: 'g',
+                          hint: '脂肪',
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 22),
@@ -158,7 +209,9 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: ShapeDecoration(
                       color: Colors.white,
-                      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,26 +221,41 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('每 100g',
-                                    style:
-                                        TextStyle(fontSize: 11, color: AppColors.subtext)),
-                                Text('${n100.calories.round()} 千卡',
-                                    style: const TextStyle(
-                                        fontSize: 20, fontWeight: FontWeight.w800)),
+                                const Text(
+                                  '每 100g',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.subtext,
+                                  ),
+                                ),
+                                Text(
+                                  '${n100.calories.round()} 千卡',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ],
                             ),
                             const Spacer(),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('每 ${fmtNum(grams)}g（一份）',
-                                    style: const TextStyle(
-                                        fontSize: 11, color: AppColors.subtext)),
-                                Text('${n100.times(grams / 100).calories.round()} 千卡',
-                                    style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.accent)),
+                                Text(
+                                  '每 ${fmtNum(grams)}g（一份）',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.subtext,
+                                  ),
+                                ),
+                                Text(
+                                  '${n100.times(grams / 100).calories.round()} 千卡',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -221,7 +289,9 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
           color: selected ? AppColors.accentSoft : Colors.white,
           shape: BoxShape.circle,
           border: Border.all(
-              color: selected ? AppColors.accent : Colors.transparent, width: 1.5),
+            color: selected ? AppColors.accent : Colors.transparent,
+            width: 1.5,
+          ),
         ),
         alignment: Alignment.center,
         child: Text(e, style: const TextStyle(fontSize: 22)),
@@ -232,18 +302,31 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
   Widget _deleteButton(BuildContext context) {
     return Container(
       decoration: ShapeDecoration(
-          color: Colors.white,
-          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18))),
+        color: Colors.white,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
       child: ListTile(
-        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
         title: const Center(
-          child: Text('删除食材',
-              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
+          child: Text(
+            '删除食材',
+            style: TextStyle(
+              color: AppColors.danger,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         onTap: () async {
           final food = widget.food!;
           final ok = await confirmDelete(
-              context, '删除食材', '「${food.name}」会同时从组合餐与饮食记录中移除，确定删除吗？');
+            context,
+            '删除食材',
+            '「${food.name}」会从组合餐配方中移除；已有的饮食记录是快照，不受影响。确定删除吗？',
+          );
           if (!ok || !context.mounted) return;
           context.read<AppStore>().removeFood(food.id);
           Navigator.of(context).pop();
@@ -256,20 +339,26 @@ class _FoodEditScreenState extends State<FoodEditScreen> {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('给食材起个名字吧'), duration: Duration(milliseconds: 900)));
+        const SnackBar(
+          content: Text('给食材起个名字吧'),
+          duration: Duration(milliseconds: 900),
+        ),
+      );
       return;
     }
     final grams = _parse(_grams);
     final store = context.read<AppStore>();
-    store.upsertFood(Food(
-      id: widget.food?.id ?? genId(),
-      name: name,
-      emoji: _emoji,
-      protein: _parse(_protein),
-      carbs: _parse(_carbs),
-      fat: _parse(_fat),
-      servingGrams: grams > 0 ? grams : 100,
-    ));
+    store.upsertFood(
+      Food(
+        id: widget.food?.id ?? genId(),
+        name: name,
+        emoji: _emoji,
+        protein: _parse(_protein),
+        carbs: _parse(_carbs),
+        fat: _parse(_fat),
+        servingGrams: grams > 0 ? grams : 100,
+      ),
+    );
     Navigator.of(context).pop();
   }
 }
